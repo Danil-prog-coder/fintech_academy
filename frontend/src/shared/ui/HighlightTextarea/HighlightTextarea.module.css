@@ -1,0 +1,45 @@
+.wrapper {
+  position: relative;
+  min-height: 72px;
+}
+
+.backdrop,
+.textarea {
+  padding: var(--space-2) 0;
+  margin: 0;
+  font-family: inherit;
+  font-size: var(--font-size-base);
+  line-height: 1.5;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+.backdrop {
+  min-height: 72px;
+  color: transparent;
+}
+
+.mark {
+  color: transparent;
+  background-color: var(--color-highlight);
+  border-radius: 4px;
+  box-shadow: 0 0 0 2px var(--color-highlight);
+}
+
+.textarea {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  color: var(--color-text);
+  caret-color: var(--color-info);
+  resize: none;
+  outline: none;
+  background: transparent;
+  border: 0;
+}
+
+.textarea::placeholder {
+  color: var(--color-text-subtle);
+}

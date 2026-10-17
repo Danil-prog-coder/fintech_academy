@@ -1,0 +1,77 @@
+.letter {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.subject {
+  font-size: var(--font-size-2xl);
+  font-weight: 700;
+  line-height: var(--line-height-tight);
+}
+
+.header {
+  display: flex;
+  gap: var(--space-4);
+  align-items: flex-start;
+}
+
+.meta {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.from {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  align-items: center;
+  font-size: var(--font-size-base);
+}
+
+.fromName {
+  font-weight: 600;
+}
+
+.email {
+  color: var(--color-text-muted);
+}
+
+.to {
+  font-size: var(--font-size-md);
+  color: var(--color-text-muted);
+}
+
+.date {
+  flex-shrink: 0;
+  padding-top: 2px;
+  font-size: var(--font-size-md);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: var(--space-1);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.paragraph {
+  font-size: var(--font-size-base);
+  white-space: pre-line;
+}
+
+.signature {
+  display: flex;
+  flex-direction: column;
+  font-size: var(--font-size-md);
+  color: var(--color-text-muted);
+}

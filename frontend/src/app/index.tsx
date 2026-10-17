@@ -1,10 +1,11 @@
-import { HomePage } from '@/pages/home';
+import { RouterProvider } from 'react-router';
 
 import { StoreProvider } from './model/StoreProvider';
+import { router } from './routes/router';
 import './styles/index.css';
 
 export const App = () => (
   <StoreProvider>
-    <HomePage />
+    <RouterProvider router={router} />
   </StoreProvider>
 );
