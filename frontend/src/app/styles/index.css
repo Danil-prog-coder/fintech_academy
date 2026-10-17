@@ -1,0 +1,27 @@
+:root {
+  --color-bg: #fff;
+  --color-text: #1a1a1a;
+  --color-text-muted: #6b6b6b;
+  --color-accent: #2563eb;
+  --font-family-base: system-ui, -apple-system, 'Segoe UI', roboto, sans-serif;
+  --radius-md: 8px;
+  --space-2: 8px;
+  --space-4: 16px;
+  --space-8: 32px;
+
+  font-family: var(--font-family-base);
+  color: var(--color-text);
+  color-scheme: light;
+  background-color: var(--color-bg);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+}
