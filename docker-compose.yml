@@ -1,0 +1,45 @@
+# Весь сайт одной командой:  docker compose up --build
+# Сайт: http://localhost:3000 (фронт + /api -> бэкенд), API напрямую: http://localhost:8000
+# Секреты (GigaChat и т.д.) берутся из back-end/.env (cp back-end/.env.example back-end/.env);
+# без этого файла стек тоже стартует, LLM-эндпоинты ответят 503.
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: resheno
+      POSTGRES_PASSWORD: resheno
+      POSTGRES_DB: resheno
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U resheno"]
+      interval: 5s
+      retries: 10
+
+  api:
+    build: ./back-end
+    env_file:
+      - path: ./back-end/.env
+        required: false
+    environment:
+      # Перебивают значения из .env: внутри сети compose БД доступна по имени сервиса.
+      DATABASE_URL: postgresql+asyncpg://resheno:resheno@postgres:5432/resheno
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-change-me}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-KdwktotoZM8Cjv6nemrset9fAdzGA7w0G-g_rUg9Bqo=}
+    depends_on:
+      postgres: {condition: service_healthy}
+    # Миграций пока нет: таблицы создаёт scripts/init_db.py
+    command: sh -c "python -m scripts.init_db && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    ports: ["8000:8000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      retries: 5
+
+  frontend:
+    build: ./frontend
+    depends_on:
+      api: {condition: service_healthy}
+    ports: ["3000:80"]
+
+volumes:
+  pgdata:
