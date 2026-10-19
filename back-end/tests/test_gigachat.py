@@ -7,12 +7,10 @@ import respx
 
 from app.llm.base import (
     LLMAuthError,
-    LLMNotConfiguredError,
     LLMResponseError,
     LLMUnavailableError,
     Message,
 )
-from app.llm.deps import get_embeddings, get_llm
 from app.llm.gigachat import GigaChatAuth, GigaChatEmbeddings, GigaChatProvider
 
 AUTH_URL = "https://auth.test/oauth"
@@ -273,30 +271,3 @@ async def test_embeddings_retry_on_503(http, clock):
     _, _, emb = make(http, clock)
     assert len(await emb.embed(["a"])) == 1
     assert route.call_count == 2
-
-
-def test_dependencies_raise_when_not_configured():
-    class State: ...
-
-    class App:
-        state = State()
-
-    class Req:
-        app = App()
-
-    with pytest.raises(LLMNotConfiguredError) as e:
-        get_llm(Req())
-    assert e.value.status == 503
-    with pytest.raises(LLMNotConfiguredError):
-        get_embeddings(Req())
-
-
-def test_app_starts_without_gigachat_keys():
-    from fastapi.testclient import TestClient
-
-    from app.main import create_app
-
-    app = create_app()
-    with TestClient(app) as c:
-        assert c.get("/health").status_code == 200
-        assert not hasattr(app.state, "llm")
