@@ -1,0 +1,142 @@
+:root {
+  /* Поверхности */
+  --color-bg: #fff;
+  --color-bg-subtle: #f7f7f5;
+  --color-bg-muted: #f1f1ee;
+  --color-surface: #fff;
+  --color-overlay: rgb(20 20 20 / 32%);
+
+  /* Границы */
+  --color-border: #e8e8e4;
+  --color-border-strong: #d7d7d2;
+
+  /* Текст */
+  --color-text: #141414;
+  --color-text-muted: #64676d;
+  --color-text-subtle: #9a9da3;
+  --color-text-inverse: #fff;
+
+  /* Акцент (лайм SOLUTIONS) */
+  --color-accent: #c6f135;
+  --color-accent-hover: #b6e322;
+  --color-accent-soft: #f1fbdd;
+  --color-accent-border: #c9eb7d;
+  --color-highlight: #e8fb9f;
+
+  /* Статусы */
+  --color-success: #23a53b;
+  --color-success-soft: #e8f7ea;
+  --color-warning: #f08a00;
+  --color-warning-soft: #fff5e5;
+  --color-danger: #e2312b;
+  --color-danger-soft: #fdeeed;
+  --color-info: #2563eb;
+  --color-info-soft: #eef4ff;
+  --color-neutral-soft: #efefec;
+
+  /* Типы файлов */
+  --color-file-pptx: #e5532d;
+  --color-file-xlsx: #1f8f4e;
+  --color-file-docx: #2b62d9;
+  --color-file-pdf: #d93b3b;
+
+  /* Типографика */
+  --font-family-base: 'Inter', system-ui, -apple-system, 'Segoe UI', roboto, sans-serif;
+  --font-size-xs: 12px;
+  --font-size-sm: 13px;
+  --font-size-md: 14px;
+  --font-size-base: 15px;
+  --font-size-lg: 17px;
+  --font-size-xl: 20px;
+  --font-size-2xl: 24px;
+  --font-size-3xl: 32px;
+  --font-size-4xl: 44px;
+  --line-height-tight: 1.2;
+  --line-height-base: 1.45;
+
+  /* Радиусы */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 999px;
+
+  /* Отступы */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* Тени */
+  --shadow-sm: 0 1px 2px rgb(20 20 20 / 6%);
+  --shadow-md: 0 4px 16px rgb(20 20 20 / 8%);
+  --shadow-lg: 0 16px 48px rgb(20 20 20 / 16%);
+
+  /* Раскладка */
+  --sidebar-width: 260px;
+  --letter-list-width: 420px;
+  --search-panel-width: 420px;
+  --header-height: 72px;
+
+  /* Слои */
+  --z-dropdown: 20;
+  --z-panel: 30;
+  --z-modal: 40;
+  --z-toast: 50;
+
+  /* Анимации */
+  --transition-fast: 120ms ease;
+
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-base);
+  color: var(--color-text);
+  color-scheme: light;
+  background-color: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-info);
+  outline-offset: 2px;
+}
+
+h1,
+h2,
+h3,
+h4,
+p {
+  margin: 0;
+}
