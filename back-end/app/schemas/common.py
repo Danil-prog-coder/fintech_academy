@@ -15,6 +15,7 @@ class AnswerStatus(StrEnum):
     answered = "answered"
     partial = "partial"
     not_found = "not_found"
+    out_of_scope = "out_of_scope"  # вопрос не относится к проекту
 
 
 class Source(BaseModel):

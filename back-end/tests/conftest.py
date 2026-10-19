@@ -41,6 +41,7 @@ async def client():
     app = create_app()
     app.dependency_overrides[get_github] = lambda: FakeGitHub()
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        c.app = app  # для dependency_overrides в тестах
         yield c
     await engine.dispose()
 

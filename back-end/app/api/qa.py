@@ -11,6 +11,8 @@ from app.api.repo import get_user_repo
 from app.core.errors import AppError
 from app.db.models import Conversation, Message, QuestionLog, Repository, User
 from app.db.session import get_session
+from app.llm.base import LLMProvider
+from app.llm.deps import get_llm_optional
 from app.schemas.common import ERROR_RESPONSES, Source
 from app.schemas.qa import AnswerResponse, AskRequest, ConversationOut, MessageOut
 from app.services.qa import answer_question, question_hash
@@ -52,6 +54,7 @@ async def ask(
     body: AskRequest,
     user: User = Depends(current_user),
     session: AsyncSession = Depends(get_session),
+    llm: LLMProvider | None = Depends(get_llm_optional),
 ):
     repo = await require_askable_repo(session, user.id)
 
@@ -71,7 +74,7 @@ async def ask(
         )
         history = [(m.role, m.text) for m in rows]
 
-    result = await answer_question(repo, body.question, history)
+    result = await answer_question(repo, body.question, history, llm)
 
     session.add(Message(conversation_id=conversation.id, role="user", text=body.question))
     reply = Message(

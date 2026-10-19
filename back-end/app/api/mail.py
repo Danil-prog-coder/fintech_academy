@@ -5,6 +5,8 @@ from app.api.deps import current_user
 from app.api.qa import require_askable_repo
 from app.db.models import QuestionLog, User
 from app.db.session import get_session
+from app.llm.base import LLMProvider
+from app.llm.deps import get_llm_optional
 from app.schemas.common import ERROR_RESPONSES
 from app.schemas.mail import MailAskRequest, MailAskResponse, QuestionResult
 from app.services.mail import extract_questions, recommend
@@ -18,6 +20,7 @@ async def mail_ask(
     body: MailAskRequest,
     user: User = Depends(current_user),
     session: AsyncSession = Depends(get_session),
+    llm: LLMProvider | None = Depends(get_llm_optional),
 ):
     """«Спросить у ИИ». Ничего не отправляет и не блокирует; текст письма не сохраняется."""
     repo = await require_askable_repo(session, user.id)
@@ -28,7 +31,7 @@ async def mail_ask(
     results: list[QuestionResult] = []
     last = None
     for question in extract_questions(body.draft):
-        last = await answer_question(repo, question, history)
+        last = await answer_question(repo, question, history, llm)
         log = QuestionLog(
             user_id=user.id,
             source="mail",

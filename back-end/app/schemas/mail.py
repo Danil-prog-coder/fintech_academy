@@ -29,6 +29,7 @@ class Recommendation(StrEnum):
     answer_found = "answer_found"  # письмо можно не отправлять
     partial = "partial"
     no_answer = "no_answer"  # ответа нет, отправьте письмо
+    out_of_scope = "out_of_scope"  # вопросы не относятся к проекту
 
 
 class QuestionResult(BaseModel):

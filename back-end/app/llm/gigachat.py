@@ -6,6 +6,7 @@
 
 import asyncio
 import json
+import logging
 import time
 import uuid
 from collections.abc import AsyncIterator, Callable
@@ -20,6 +21,8 @@ from app.llm.base import (
     LLMUnavailableError,
     Message,
 )
+
+log = logging.getLogger(__name__)
 
 PROVIDER = "gigachat"
 TOKEN_MARGIN_SEC = 60  # обновляем токен заранее, до истечения
@@ -323,4 +326,7 @@ def build_gigachat(
 def make_http_client(settings: Settings) -> httpx.AsyncClient:
     """Клиент с проверкой TLS. Для сертификата российского УЦ — GIGACHAT_CA_BUNDLE."""
     verify: str | bool = settings.gigachat_ca_bundle or True
+    if not settings.gigachat_verify_ssl:
+        log.warning("GIGACHAT_VERIFY_SSL=false: проверка TLS отключена, только для отладки")
+        verify = False
     return httpx.AsyncClient(timeout=settings.llm_timeout_sec, verify=verify)

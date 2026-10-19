@@ -19,8 +19,12 @@ def extract_questions(draft: str) -> list[str]:
 
 
 def recommend(statuses: list[AnswerStatus]) -> Recommendation:
-    if all(s == AnswerStatus.answered for s in statuses):
+    """Вопросы вне проекта в расчёт не берутся, пока есть хотя бы один вопрос по проекту."""
+    relevant = [s for s in statuses if s != AnswerStatus.out_of_scope]
+    if not relevant:
+        return Recommendation.out_of_scope
+    if all(s == AnswerStatus.answered for s in relevant):
         return Recommendation.answer_found
-    if all(s == AnswerStatus.not_found for s in statuses):
+    if all(s == AnswerStatus.not_found for s in relevant):
         return Recommendation.no_answer
     return Recommendation.partial
