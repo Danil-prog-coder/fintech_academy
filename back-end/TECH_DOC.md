@@ -172,13 +172,19 @@ back-end/
 ```python
 class LLMProvider(Protocol):
     name: str
-    async def complete(self, messages: list[Message], *, stream: bool = False) -> LLMResult | AsyncIterator[str]: ...
+    async def complete(self, messages: list[Message], *, temperature=None, max_tokens=None) -> LLMResult: ...
+    def stream(self, messages: list[Message], *, temperature=None, max_tokens=None) -> AsyncIterator[str]: ...
 
 
 class EmbeddingProvider(Protocol):
+    name: str
     dim: int
     async def embed(self, texts: list[str]) -> list[list[float]]: ...
 ```
+
+Ошибки (`app/llm/base.py`): `LLMNotConfiguredError` (503, нет ключей), `LLMAuthError` (неверные ключи, fallback не включается), `LLMUnavailableError` (таймаут, 429, 5xx; `retryable`, допустим fallback), `LLMResponseError` (неожиданный ответ).
+
+Реализовано: `app/llm/gigachat.py` (авторизация с кэшем токена под `asyncio.Lock`, чат, потоковый чат, эмбеддинги пакетами с `Semaphore`, повторы на 429/5xx, одно обновление токена на 401). `router.py` с fallback и YandexGPT ещё не написаны. Проверка на живых ключах: `python -m scripts.check_gigachat`.
 
 Остальной код работает только с этими интерфейсами и не знает, какой провайдер ответил. Провайдер эмбеддингов выбирается переменной `EMBEDDINGS_PROVIDER` (`gigachat` по умолчанию, `local` — локальная модель на VPS, позже).
 

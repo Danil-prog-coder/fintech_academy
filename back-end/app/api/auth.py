@@ -15,7 +15,7 @@ from app.core.security import (
     new_api_token,
     verify_password,
 )
-from app.db.models import ApiToken, User
+from app.db.models import ApiToken, Repository, User
 from app.db.session import get_session
 
 router = APIRouter(tags=["auth"])
@@ -113,5 +113,10 @@ async def revoke_api_token(
 
 
 @router.get("/me", response_model=MeResponse)
-async def me(user: User = Depends(current_user)):
-    return MeResponse(id=user.id, email=user.email)
+async def me(
+    user: User = Depends(current_user), session: AsyncSession = Depends(get_session)
+):
+    repo = await session.scalar(select(Repository).where(Repository.user_id == user.id))
+    return MeResponse(
+        id=user.id, email=user.email, repo_status=repo.status if repo else "not_connected"
+    )
