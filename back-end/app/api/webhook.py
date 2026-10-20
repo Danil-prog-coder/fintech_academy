@@ -2,7 +2,7 @@ import json
 
 from fastapi import APIRouter, Depends, Header, Request
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -13,6 +13,8 @@ from app.schemas.common import ERROR_RESPONSES
 from app.services.github import verify_signature
 
 router = APIRouter(tags=["github"], responses=ERROR_RESPONSES)
+
+_ZERO_SHA = "0" * 40
 
 
 class WebhookResponse(BaseModel):
@@ -44,24 +46,42 @@ async def github_webhook(
         payload = json.loads(body)
         owner, name = payload["repository"]["full_name"].split("/", 1)
         after = payload["after"]
-    except (ValueError, KeyError, TypeError):
+        ref = payload.get("ref")
+    except (ValueError, KeyError, TypeError, AttributeError):
         raise AppError("invalid_payload", "Некорректное тело вебхука.", 400)
+    if payload.get("deleted") or after == _ZERO_SHA:
+        return WebhookResponse(accepted=False, detail="ветка удалена")
 
-    repo = await session.scalar(
-        select(Repository).where(Repository.owner == owner, Repository.name == name)
-    )
-    if repo is None:
+    # GitHub не различает регистр в именах; один репозиторий могут подключить несколько людей.
+    repos = (
+        await session.scalars(
+            select(Repository).where(
+                func.lower(Repository.owner) == owner.lower(),
+                func.lower(Repository.name) == name.lower(),
+            )
+        )
+    ).all()
+    if not repos:
         return WebhookResponse(accepted=False, detail="репозиторий не подключён")
 
-    # Идемпотентность: повторная доставка того же коммита не создаёт второй задачи.
-    jobs = await session.scalars(
-        select(Job).where(Job.repo_id == repo.id, Job.type == "index_update")
-    )
-    if any(j.payload.get("after") == after for j in jobs):
-        return WebhookResponse(accepted=True, detail="уже в очереди")
-
-    session.add(Job(repo_id=repo.id, type="index_update", payload={"after": after}))
-    if repo.status == "ready":
-        repo.status = "updating"
+    queued = fresh = 0
+    for repo in repos:
+        # Индексируем только основную ветку.
+        if ref and repo.default_branch and ref != f"refs/heads/{repo.default_branch}":
+            continue
+        jobs = await session.scalars(
+            select(Job).where(Job.repo_id == repo.id, Job.type == "index_update")
+        )
+        # Идемпотентность: повторная доставка того же коммита не создаёт второй задачи.
+        if any(j.payload.get("after") == after for j in jobs):
+            queued += 1
+            continue
+        fresh += 1
+        session.add(Job(repo_id=repo.id, type="index_update", payload={"after": after}))
+        if repo.status == "ready":
+            repo.status = "updating"
+        queued += 1
     await session.commit()
-    return WebhookResponse(accepted=True)
+    if queued == 0:
+        return WebhookResponse(accepted=False, detail="ветка не основная")
+    return WebhookResponse(accepted=True, detail=None if fresh else "уже в очереди")

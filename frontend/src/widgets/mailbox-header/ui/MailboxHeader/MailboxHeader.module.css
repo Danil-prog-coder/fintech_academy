@@ -1,0 +1,48 @@
+.header {
+  display: flex;
+  gap: var(--space-4);
+  align-items: center;
+  height: var(--header-height);
+  padding: 0 var(--space-6);
+  background-color: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.title {
+  flex-shrink: 0;
+  width: calc(var(--letter-list-width) - var(--space-10));
+  font-size: var(--font-size-3xl);
+  font-weight: 700;
+}
+
+.searchForm {
+  display: flex;
+  flex: 1;
+  max-width: 600px;
+  margin-right: auto;
+}
+
+.search {
+  flex: 1;
+  height: 44px;
+  background-color: var(--color-bg-subtle);
+}
+
+.user {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.email {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (width <= 1400px) {
+  .title {
+    width: auto;
+  }
+}

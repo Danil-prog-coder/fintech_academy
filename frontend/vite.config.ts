@@ -6,6 +6,15 @@ import { defineConfig } from 'vite';
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  server: {
+    // Как nginx в Docker: /api/auth/login -> http://127.0.0.1:8000/auth/login
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:8000',
+        rewrite: (path) => path.replace(/^\/api/, ''),
+      },
+    },
+  },
   build: {
     rolldownOptions: {
       output: {

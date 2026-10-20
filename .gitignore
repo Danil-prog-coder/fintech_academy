@@ -6,3 +6,7 @@ __pycache__/
 .ruff_cache/
 *.egg-info/
 .idea/
+
+# Сертификаты и секреты
+back-end/certs/*.pem
+back-end/certs/*.crt

@@ -1,0 +1,14 @@
+.frame {
+  display: block;
+  width: 100%;
+  background-color: var(--color-surface);
+  border: 0;
+}
+
+.text {
+  margin: 0;
+  font-family: inherit;
+  font-size: var(--font-size-base);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}

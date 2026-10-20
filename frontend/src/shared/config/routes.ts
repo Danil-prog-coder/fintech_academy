@@ -1,10 +1,8 @@
 export const routePaths = {
   root: '/',
+  login: '/login',
   connect: '/connect',
   mail: '/mail',
-  admin: '/admin',
-  adminEmployees: '/admin/employees',
-  adminSources: '/admin/sources',
-  adminSecurity: '/admin/security',
-  adminOrganization: '/admin/organization',
+  repo: '/repo',
+  chat: '/chat',
 } as const;

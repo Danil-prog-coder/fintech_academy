@@ -1,0 +1,81 @@
+.title {
+  margin-bottom: var(--space-2);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  background-color: var(--color-bg-subtle);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.head {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  font-size: var(--font-size-sm);
+}
+
+.path {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.commit {
+  color: var(--color-text-muted);
+}
+
+.open {
+  display: inline-flex;
+  color: var(--color-info);
+}
+
+.snippet,
+.snippetFull {
+  margin: 0;
+  overflow: hidden;
+  font-family: ui-monospace, monospace;
+  font-size: var(--font-size-xs);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.snippet {
+  max-height: 4.5em;
+}
+
+.snippetFull {
+  max-height: 24em;
+  overflow-y: auto;
+}
+
+.more {
+  align-self: flex-start;
+  padding: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-info);
+  background: none;
+  border: 0;
+}
+
+.note {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}

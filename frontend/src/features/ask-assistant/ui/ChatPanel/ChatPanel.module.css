@@ -1,0 +1,81 @@
+.chat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  height: 100%;
+  min-height: 0;
+}
+
+.toolbar {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.messages {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 0;
+  padding: var(--space-2);
+  overflow-y: auto;
+}
+
+.user {
+  align-self: flex-end;
+  max-width: 80%;
+  padding: var(--space-3) var(--space-4);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  background-color: var(--color-accent-soft);
+  border-radius: var(--radius-lg);
+}
+
+.assistant {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  align-items: flex-start;
+  max-width: 90%;
+  padding: var(--space-4);
+  background-color: var(--color-bg-subtle);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.assistant > * {
+  max-width: 100%;
+}
+
+.text {
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.commit {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.form {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-end;
+}
+
+.input {
+  flex: 1;
+  padding: var(--space-3);
+  resize: none;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+}
+
+.input:focus-visible {
+  outline: none;
+  border-color: var(--color-accent-hover);
+  box-shadow: 0 0 0 3px var(--color-accent-soft);
+}

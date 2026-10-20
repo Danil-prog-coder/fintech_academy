@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import current_user
 from app.core.errors import AppError
+from app.core.ratelimit import per_ip
 from app.core.security import (
     create_jwt,
     decode_jwt,
@@ -58,7 +59,11 @@ def _pair(user_id: int) -> TokenPair:
 
 
 @router.post("/auth/register", response_model=TokenPair, status_code=201)
-async def register(body: Credentials, session: AsyncSession = Depends(get_session)):
+async def register(
+    body: Credentials,
+    session: AsyncSession = Depends(get_session),
+    _: None = per_ip("register", 10),
+):
     user = User(email=body.email.lower(), password_hash=await hash_password(body.password))
     session.add(user)
     try:
@@ -70,7 +75,11 @@ async def register(body: Credentials, session: AsyncSession = Depends(get_sessio
 
 
 @router.post("/auth/login", response_model=TokenPair)
-async def login(body: Credentials, session: AsyncSession = Depends(get_session)):
+async def login(
+    body: Credentials,
+    session: AsyncSession = Depends(get_session),
+    _: None = per_ip("login", 10),
+):
     user = await session.scalar(select(User).where(User.email == body.email.lower()))
     # Одинаковая ошибка для неверного email и пароля.
     if user is None or not await verify_password(body.password, user.password_hash):
@@ -79,7 +88,11 @@ async def login(body: Credentials, session: AsyncSession = Depends(get_session))
 
 
 @router.post("/auth/refresh", response_model=TokenPair)
-async def refresh(body: RefreshRequest, session: AsyncSession = Depends(get_session)):
+async def refresh(
+    body: RefreshRequest,
+    session: AsyncSession = Depends(get_session),
+    _: None = per_ip("refresh", 60),
+):
     user_id = decode_jwt(body.refresh_token, "refresh")
     if user_id is None or await session.get(User, user_id) is None:
         raise AppError("invalid_token", "Токен недействителен или истёк.", 401)

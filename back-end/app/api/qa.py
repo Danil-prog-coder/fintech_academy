@@ -9,13 +9,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import current_user
 from app.api.repo import get_user_repo
 from app.core.errors import AppError
-from app.db.models import Conversation, Message, QuestionLog, Repository, User
+from app.core.ratelimit import per_user
+from app.db.models import Chunk, Conversation, Message, QuestionLog, Repository, User
 from app.db.session import get_session
-from app.llm.base import LLMProvider
-from app.llm.deps import get_llm_optional
+from app.llm.base import EmbeddingProvider, LLMProvider
+from app.llm.deps import get_embeddings_optional, get_llm_optional
 from app.schemas.common import ERROR_RESPONSES, Source
 from app.schemas.qa import AnswerResponse, AskRequest, ConversationOut, MessageOut
-from app.services.qa import answer_question, question_hash
+from app.services.qa import answer_question, question_hash, to_source
 
 router = APIRouter(tags=["qa"], responses=ERROR_RESPONSES)
 
@@ -55,6 +56,8 @@ async def ask(
     user: User = Depends(current_user),
     session: AsyncSession = Depends(get_session),
     llm: LLMProvider | None = Depends(get_llm_optional),
+    embeddings: EmbeddingProvider | None = Depends(get_embeddings_optional),
+    _: None = per_user("ask", 30),
 ):
     repo = await require_askable_repo(session, user.id)
 
@@ -74,7 +77,7 @@ async def ask(
         )
         history = [(m.role, m.text) for m in rows]
 
-    result = await answer_question(repo, body.question, history, llm)
+    result = await answer_question(session, repo, body.question, history, llm, embeddings)
 
     session.add(Message(conversation_id=conversation.id, role="user", text=body.question))
     reply = Message(
@@ -139,6 +142,14 @@ async def get_conversation(
 
 
 @router.get("/sources/{source_id}", response_model=Source)
-async def get_source(source_id: int, user: User = Depends(current_user)):
-    # Фрагменты (chunks) появятся вместе с индексацией; пока источников не существует.
-    raise AppError("source_not_found", "Источник не найден.", 404)
+async def get_source(
+    source_id: int,
+    user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """Фрагмент целиком и ссылка на файл в GitHub. После переиндексации id меняются."""
+    chunk = await session.get(Chunk, source_id)
+    repo = await session.get(Repository, chunk.repo_id) if chunk else None
+    if chunk is None or repo is None or repo.user_id != user.id:
+        raise AppError("source_not_found", "Источник не найден.", 404)
+    return to_source(repo, chunk, full=True)

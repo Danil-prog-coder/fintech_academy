@@ -1,40 +1,33 @@
 import { createBrowserRouter, Navigate } from 'react-router';
 
-import { ConnectPage } from '@/pages/connect';
-import { MailPage } from '@/pages/mail';
+import { ChatPage } from '@/pages/chat';
+import { ConnectMailboxPage } from '@/pages/connect-mailbox';
+import { LoginPage } from '@/pages/login';
+import { MailboxPage } from '@/pages/mailbox';
+import { OverviewPage } from '@/pages/overview';
+import { RepoPage } from '@/pages/repo';
 import { routePaths } from '@/shared/config';
 
+import { GuestOnly, RequireAuth } from './AuthGuard';
 import { RootLayout } from './RootLayout';
 
 export const router = createBrowserRouter([
   {
     element: <RootLayout />,
     children: [
-      { path: routePaths.root, element: <Navigate to={routePaths.connect} replace /> },
-      { path: routePaths.connect, element: <ConnectPage /> },
-      { path: routePaths.mail, element: <MailPage /> },
-      // Кабинет администратора загружается отдельным чанком.
       {
-        path: routePaths.admin,
-        lazy: async () => ({ Component: (await import('@/pages/overview')).OverviewPage }),
+        element: <GuestOnly />,
+        children: [{ path: routePaths.login, element: <LoginPage /> }],
       },
       {
-        path: routePaths.adminEmployees,
-        lazy: async () => ({ Component: (await import('@/pages/employees')).EmployeesPage }),
-      },
-      {
-        path: routePaths.adminSources,
-        lazy: async () => ({ Component: (await import('@/pages/sources')).SourcesPage }),
-      },
-      {
-        path: routePaths.adminSecurity,
-        lazy: async () => ({ Component: (await import('@/pages/security')).SecurityPage }),
-      },
-      {
-        path: routePaths.adminOrganization,
-        lazy: async () => ({
-          Component: (await import('@/pages/organization')).OrganizationPage,
-        }),
+        element: <RequireAuth />,
+        children: [
+          { path: routePaths.root, element: <OverviewPage /> },
+          { path: routePaths.mail, element: <MailboxPage /> },
+          { path: routePaths.connect, element: <ConnectMailboxPage /> },
+          { path: routePaths.repo, element: <RepoPage /> },
+          { path: routePaths.chat, element: <ChatPage /> },
+        ],
       },
       { path: '*', element: <Navigate to={routePaths.root} replace /> },
     ],

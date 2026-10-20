@@ -7,6 +7,7 @@
 import asyncio
 import json
 import logging
+import os
 import time
 import uuid
 from collections.abc import AsyncIterator, Callable
@@ -79,7 +80,12 @@ class GigaChatAuth:
         }
         try:
             r = await self._http.post(self._url, headers=headers, data={"scope": self._scope})
-        except httpx.HTTPError:
+        except httpx.HTTPError as exc:
+            if "CERTIFICATE_VERIFY_FAILED" in str(exc):
+                log.error(
+                    "GigaChat: TLS-сертификат не принят. Нужен сертификат российского УЦ: "
+                    "python scripts/setup_env.py --fetch-ca (см. README)."
+                )
             raise LLMUnavailableError(PROVIDER) from None
         if r.status_code in (400, 401, 403):
             raise LLMAuthError(PROVIDER)
@@ -325,7 +331,16 @@ def build_gigachat(
 
 def make_http_client(settings: Settings) -> httpx.AsyncClient:
     """Клиент с проверкой TLS. Для сертификата российского УЦ — GIGACHAT_CA_BUNDLE."""
-    verify: str | bool = settings.gigachat_ca_bundle or True
+    verify: str | bool = True
+    if settings.gigachat_ca_bundle:
+        if os.path.isfile(settings.gigachat_ca_bundle):
+            verify = settings.gigachat_ca_bundle
+        else:
+            log.error(
+                "GIGACHAT_CA_BUNDLE=%s не найден: используется системное хранилище сертификатов "
+                "(для GigaChat нужен сертификат российского УЦ, см. README)",
+                settings.gigachat_ca_bundle,
+            )
     if not settings.gigachat_verify_ssl:
         log.warning("GIGACHAT_VERIFY_SSL=false: проверка TLS отключена, только для отладки")
         verify = False

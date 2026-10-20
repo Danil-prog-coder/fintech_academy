@@ -1,7 +1,21 @@
 # Весь сайт одной командой:  docker compose up --build
-# Сайт: http://localhost:3000 (фронт + /api -> бэкенд), API напрямую: http://localhost:8000
-# Секреты (GigaChat и т.д.) берутся из back-end/.env (cp back-end/.env.example back-end/.env);
-# без этого файла стек тоже стартует, LLM-эндпоинты ответят 503.
+#   Сайт: http://localhost:3000  (фронт + /api -> бэкенд)     API и Swagger: http://localhost:8000/docs
+#
+# Первый запуск:  python back-end/scripts/setup_env.py   (создаст back-end/.env и секреты),
+# затем впишите GIGACHAT_CREDENTIALS в back-end/.env. Подробнее — README.md.
+# Без ключей стек тоже поднимется: почта работает, а ответы ассистента и индексация ждут ключей.
+x-backend-env: &backend-env
+  env_file:
+    - path: ./back-end/.env
+      required: false
+  environment: &backend-vars
+    # Перебивают .env: внутри сети compose БД доступна по имени сервиса.
+    DATABASE_URL: postgresql+asyncpg://resheno:resheno@postgres:5432/resheno
+    SECRET_KEY: ${SECRET_KEY:-dev-secret-change-me-dev-secret-change-me}
+    ENCRYPTION_KEY: ${ENCRYPTION_KEY:-KdwktotoZM8Cjv6nemrset9fAdzGA7w0G-g_rUg9Bqo=}
+  volumes:
+    - ./back-end/certs:/srv/certs:ro
+
 services:
   postgres:
     image: pgvector/pgvector:pg16
@@ -14,32 +28,36 @@ services:
       test: ["CMD-SHELL", "pg_isready -U resheno"]
       interval: 5s
       retries: 10
+    restart: unless-stopped
 
   api:
     build: ./back-end
-    env_file:
-      - path: ./back-end/.env
-        required: false
-    environment:
-      # Перебивают значения из .env: внутри сети compose БД доступна по имени сервиса.
-      DATABASE_URL: postgresql+asyncpg://resheno:resheno@postgres:5432/resheno
-      SECRET_KEY: ${SECRET_KEY:-dev-secret-change-me}
-      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-KdwktotoZM8Cjv6nemrset9fAdzGA7w0G-g_rUg9Bqo=}
+    <<: *backend-env
     depends_on:
       postgres: {condition: service_healthy}
-    # Миграций пока нет: таблицы создаёт scripts/init_db.py
-    command: sh -c "python -m scripts.init_db && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    command: sh -c "python -m scripts.migrate && uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*' --no-access-log"
     ports: ["8000:8000"]
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 10s
-      retries: 5
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+
+  worker:
+    build: ./back-end
+    <<: *backend-env
+    depends_on:
+      api: {condition: service_healthy}  # api применяет миграции
+    command: python -m app.worker
+    restart: unless-stopped
 
   frontend:
     build: ./frontend
     depends_on:
       api: {condition: service_healthy}
     ports: ["3000:80"]
+    restart: unless-stopped
 
 volumes:
   pgdata:

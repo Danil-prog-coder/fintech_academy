@@ -30,4 +30,10 @@ class RepoStatusResponse(BaseModel):
     name: str | None = None
     last_commit: str | None = None
     webhook_registered: bool = False
+    webhook_hint: str | None = Field(
+        default=None, description="Что сделать вручную, если вебхук не удалось создать."
+    )
+    last_error: str | None = None
+    indexed_files: int = 0
+    skipped_files: int = 0
     connected_at: datetime | None = None

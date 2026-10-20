@@ -1,0 +1,51 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.body {
+  width: 100%;
+  min-height: 240px;
+  padding: var(--space-3);
+  resize: vertical;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+}
+
+.body:focus-visible {
+  outline: none;
+  border-color: var(--color-accent-hover);
+  box-shadow: 0 0 0 3px var(--color-accent-soft);
+}
+
+.files {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.file {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  padding: var(--space-1) var(--space-2);
+  background-color: var(--color-bg-subtle);
+  border-radius: var(--radius-md);
+}
+
+.fileName {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.footer {
+  display: flex;
+  gap: var(--space-2);
+}

@@ -15,6 +15,10 @@ def get_llm_optional(request: Request) -> LLMProvider | None:
     return getattr(request.app.state, "llm", None)
 
 
+def get_embeddings_optional(request: Request) -> EmbeddingProvider | None:
+    return getattr(request.app.state, "embeddings", None)
+
+
 def get_embeddings(request: Request) -> EmbeddingProvider:
     embeddings = getattr(request.app.state, "embeddings", None)
     if embeddings is None:

@@ -45,11 +45,40 @@ class Settings(BaseSettings):
     )
     gigachat_max_retries: int = 2
 
+    # Запасной провайдер. Без ключей просто не включается.
+    yandex_api_key: str = ""
+    yandex_folder_id: str = ""
+    yandex_model: str = "yandexgpt/latest"
+    yandex_base_url: str = "https://llm.api.cloud.yandex.net/foundationModels/v1"
+
     github_webhook_secret: str = ""
     public_base_url: str = "http://localhost:8000"
     max_repo_files: int = 1_000_000
     max_file_bytes: int = 1_000_000_000
     log_level: str = "INFO"
+
+    # Поиск и ответы.
+    qa_top_k: int = 8
+    qa_min_similarity: float = 0.25  # ниже — фрагмент считается нерелевантным
+    index_chunk_chars: int = 1200
+    index_issue_pages: int = 3  # страниц по 100 issues/PR
+
+    # Фоновый worker.
+    worker_poll_sec: float = 2.0
+    worker_max_attempts: int = 3
+    worker_retry_base_sec: int = 30
+    worker_stale_minutes: int = 10
+
+    # Ограничение частоты запросов (в памяти процесса).
+    rate_limit_enabled: bool = True
+
+    # Почтовый клиент (IMAP/SMTP). Пароли ящиков хранятся только зашифрованными.
+    mail_timeout_sec: int = 20
+    # Разрешать подключение к приватным/локальным адресам. Только для разработки и тестов:
+    # иначе пользователь может заставить сервер ходить во внутреннюю сеть (SSRF).
+    mail_allow_private_hosts: bool = False
+    mail_max_send_bytes: int = 25 * 1024 * 1024
+    mail_max_attachment_bytes: int = 25 * 1024 * 1024
 
 
 @lru_cache
