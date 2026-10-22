@@ -26,6 +26,23 @@ def _cosine(a: list[float], b: list[float]) -> float:
     return dot / norm if norm else 0.0
 
 
+async def search_many(
+    session: AsyncSession,
+    repo: Repository,
+    vectors: list[list[float]],
+    *,
+    k: int,
+    min_score: float,
+) -> list[Hit]:
+    """Объединяет результаты по нескольким запросам: у каждого фрагмента лучшая оценка."""
+    best: dict[int, Hit] = {}
+    for vector in vectors:
+        for hit in await search(session, repo, vector, k=k, min_score=min_score):
+            if hit.chunk.id not in best or hit.score > best[hit.chunk.id].score:
+                best[hit.chunk.id] = hit
+    return sorted(best.values(), key=lambda h: h.score, reverse=True)[:k]
+
+
 async def search(
     session: AsyncSession, repo: Repository, vector: list[float], *, k: int, min_score: float
 ) -> list[Hit]:

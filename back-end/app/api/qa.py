@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import current_user
 from app.api.repo import get_user_repo
+from app.core.config import get_settings
 from app.core.errors import AppError
 from app.core.ratelimit import per_user
 from app.db.models import Chunk, Conversation, Message, QuestionLog, Repository, User
@@ -77,7 +78,15 @@ async def ask(
         )
         history = [(m.role, m.text) for m in rows]
 
-    result = await answer_question(session, repo, body.question, history, llm, embeddings)
+    result = await answer_question(
+        session,
+        repo,
+        body.question,
+        history,
+        llm,
+        embeddings,
+        chat=get_settings().qa_mode == "chat",
+    )
 
     session.add(Message(conversation_id=conversation.id, role="user", text=body.question))
     reply = Message(

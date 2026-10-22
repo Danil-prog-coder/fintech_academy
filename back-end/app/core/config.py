@@ -45,6 +45,14 @@ class Settings(BaseSettings):
     )
     gigachat_max_retries: int = 2
 
+    # Эмбеддинги Cloud.ru (EMBEDDINGS_PROVIDER=cloudru). Чат при этом остаётся на LLM_PRIMARY.
+    cloudru_api_key: str = Field("", validation_alias=AliasChoices("CLOUDRU_API_KEY", "API_KEY"))
+    cloudru_base_url: str = "https://foundation-models.api.cloud.ru/v1"
+    cloudru_embeddings_model: str = "BAAI/bge-m3"
+    cloudru_embeddings_dim: int = 1024
+    cloudru_embeddings_batch: int = 16
+    cloudru_embeddings_concurrency: int = 3
+
     # Запасной провайдер. Без ключей просто не включается.
     yandex_api_key: str = ""
     yandex_folder_id: str = ""
@@ -60,6 +68,8 @@ class Settings(BaseSettings):
     # Поиск и ответы.
     qa_top_k: int = 8
     qa_min_similarity: float = 0.25  # ниже — фрагмент считается нерелевантным
+    # strict: ответ только с подтверждением из файлов, иначе not_found. chat: разговорный чат.
+    qa_mode: str = "strict"
     index_chunk_chars: int = 1200
     index_issue_pages: int = 3  # страниц по 100 issues/PR
 
