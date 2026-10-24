@@ -44,6 +44,12 @@ docker compose up --build
 | `worker` | Индексация репозиториев и обновление по коммитам |
 | `frontend` | nginx со сборкой фронтенда; `/api` проксируется на `api` |
 
+## Деплой на App Platform (Timeweb)
+
+Платформа читает только `docker-compose.yml`: в нём нет `volumes`, `env_file` и портов 80/443, а сайт (`frontend`) идёт первым сервисом. Локальные добавки (том БД, `back-end/.env`, порт API) вынесены в `docker-compose.override.yml`, платформа его не использует.
+
+Все секреты задаются переменными окружения приложения в панели: `SECRET_KEY`, `ENCRYPTION_KEY`, `GIGACHAT_CREDENTIALS`, `GITHUB_WEBHOOK_SECRET`, `PUBLIC_BASE_URL` (адрес сайта) и при необходимости `YANDEX_*`. Без `DATABASE_URL` используется Postgres из compose **без тома**: данные теряются при пересоздании контейнера. Для продакшена укажите управляемую БД с расширением pgvector.
+
 ## Проверка
 
 ```bash

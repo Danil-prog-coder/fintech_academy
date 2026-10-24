@@ -1,33 +1,34 @@
-# Весь сайт одной командой:  docker compose up --build
-#   Сайт: http://localhost:3000  (фронт + /api -> бэкенд)     API и Swagger: http://localhost:8000/docs
+# Базовый compose — совместим с App Platform (Timeweb): без volumes, env_file и опубликованных
+# портов 80/443. Сайт — ПЕРВЫЙ сервис (платформа проксирует на домен только его).
 #
-# Первый запуск:  python back-end/scripts/setup_env.py   (создаст back-end/.env и секреты),
-# затем впишите GIGACHAT_CREDENTIALS в back-end/.env. Подробнее — README.md.
-# Без ключей стек тоже поднимется: почта работает, а ответы ассистента и индексация ждут ключей.
+# Секреты и ключи задаются переменными окружения (в панели платформы или в shell):
+#   SECRET_KEY, ENCRYPTION_KEY, GIGACHAT_CREDENTIALS, DATABASE_URL и т.д. (список ниже).
+# Локально:  docker compose up --build   — подхватит docker-compose.override.yml
+#   (там же back-end/.env, том для БД и порт API). Подробнее — README.md.
+#
+# БД: по умолчанию Postgres из этого файла БЕЗ тома — данные пропадут при пересоздании контейнера.
+# Для продакшена задайте DATABASE_URL на управляемую БД (расширение pgvector обязательно).
 x-backend-env: &backend-env
-  env_file:
-    - path: ./back-end/.env
-      required: false
-  environment: &backend-vars
-    # Перебивают .env: внутри сети compose БД доступна по имени сервиса.
-    DATABASE_URL: postgresql+asyncpg://resheno:resheno@postgres:5432/resheno
+  environment:
+    DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://resheno:resheno@postgres:5432/resheno}
     SECRET_KEY: ${SECRET_KEY:-dev-secret-change-me-dev-secret-change-me}
     ENCRYPTION_KEY: ${ENCRYPTION_KEY:-KdwktotoZM8Cjv6nemrset9fAdzGA7w0G-g_rUg9Bqo=}
-  volumes:
-    - ./back-end/certs:/srv/certs:ro
+    GIGACHAT_CA_BUNDLE: ${GIGACHAT_CA_BUNDLE:-certs/russian_trusted_root_ca.crt}
+    # Без значения — переменная передаётся из окружения, если задана (иначе её берёт back-end/.env).
+    GIGACHAT_CREDENTIALS:
+    GIGACHAT_SCOPE:
+    YANDEX_API_KEY:
+    YANDEX_FOLDER_ID:
+    YANDEX_MODEL:
+    GITHUB_WEBHOOK_SECRET:
+    PUBLIC_BASE_URL:
 
 services:
-  postgres:
-    image: pgvector/pgvector:pg16
-    environment:
-      POSTGRES_USER: resheno
-      POSTGRES_PASSWORD: resheno
-      POSTGRES_DB: resheno
-    volumes: [pgdata:/var/lib/postgresql/data]
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U resheno"]
-      interval: 5s
-      retries: 10
+  frontend:
+    build: ./frontend
+    depends_on:
+      api: {condition: service_healthy}
+    ports: ["3000:80"]
     restart: unless-stopped
 
   api:
@@ -36,7 +37,6 @@ services:
     depends_on:
       postgres: {condition: service_healthy}
     command: sh -c "python -m scripts.migrate && uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*' --no-access-log"
-    ports: ["8000:8000"]
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 10s
@@ -52,12 +52,14 @@ services:
     command: python -m app.worker
     restart: unless-stopped
 
-  frontend:
-    build: ./frontend
-    depends_on:
-      api: {condition: service_healthy}
-    ports: ["3000:80"]
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: resheno
+      POSTGRES_PASSWORD: resheno
+      POSTGRES_DB: resheno
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U resheno"]
+      interval: 5s
+      retries: 10
     restart: unless-stopped
-
-volumes:
-  pgdata:

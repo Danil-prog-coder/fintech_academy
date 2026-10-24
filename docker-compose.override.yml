@@ -1,0 +1,23 @@
+# Локальные добавки к docker-compose.yml (подхватываются автоматически `docker compose up`).
+# На App Platform не используется: там нужен только базовый файл (volumes/env_file запрещены).
+#
+# Первый запуск:  python back-end/scripts/setup_env.py   (создаст back-end/.env и секреты),
+# затем впишите GIGACHAT_CREDENTIALS в back-end/.env.
+x-local-env: &local-env
+  env_file:
+    - path: ./back-end/.env
+      required: false
+
+services:
+  postgres:
+    volumes: [pgdata:/var/lib/postgresql/data]
+
+  api:
+    <<: *local-env
+    ports: ["8000:8000"]
+
+  worker:
+    <<: *local-env
+
+volumes:
+  pgdata:

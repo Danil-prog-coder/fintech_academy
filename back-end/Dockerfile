@@ -10,6 +10,8 @@ RUN pip install .
 COPY alembic.ini ./
 COPY alembic ./alembic
 COPY scripts ./scripts
+# Сертификат Минцифры для GigaChat лежит в образе (на платформах без volumes его не примонтировать).
+COPY certs ./certs
 
 USER app
 EXPOSE 8000
