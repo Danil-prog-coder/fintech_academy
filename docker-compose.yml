@@ -16,7 +16,15 @@ x-backend-env: &backend-env
     GIGACHAT_CA_BUNDLE: ${GIGACHAT_CA_BUNDLE:-certs/russian_trusted_root_ca.crt}
     # Без значения — переменная передаётся из окружения, если задана (иначе её берёт back-end/.env).
     GIGACHAT_CREDENTIALS:
+    GIGACHAT_AUTH_KEY:  # алиас GIGACHAT_CREDENTIALS
     GIGACHAT_SCOPE:
+    GIGACHAT_VERIFY_SSL:
+    API_KEY:  # ключ Cloud.ru для эмбеддингов (алиас CLOUDRU_API_KEY)
+    CLOUDRU_API_KEY:
+    EMBEDDINGS_PROVIDER:
+    LLM_PRIMARY:
+    LLM_FALLBACK:
+    QA_MODE:
     YANDEX_API_KEY:
     YANDEX_FOLDER_ID:
     YANDEX_MODEL:
