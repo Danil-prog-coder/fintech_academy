@@ -13,6 +13,7 @@ import { showToast } from '@/shared/lib/toast';
 import { Button, Notice, Select, TextField, Toggle } from '@/shared/ui';
 
 import styles from './ConnectMailboxForm.module.css';
+import { AppPasswordGuide } from '../AppPasswordGuide/AppPasswordGuide';
 
 interface ConnectMailboxFormProps {
   onConnected: () => void;
@@ -152,6 +153,7 @@ export const ConnectMailboxForm = ({ onConnected }: ConnectMailboxFormProps) => 
         Нужен именно пароль приложения (не основной пароль от почты): его создают в настройках
         безопасности почтового сервиса. Он хранится на сервере в зашифрованном виде.
       </p>
+      <AppPasswordGuide email={email} />
       <TextField
         label="Имя отправителя"
         placeholder="Имя отправителя (необязательно)"
