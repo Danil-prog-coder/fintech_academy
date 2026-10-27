@@ -39,7 +39,7 @@ from app.schemas.mailbox import (
     SendResult,
 )
 from app.services.mailbox import imap, parse, smtp
-from app.services.mailbox.errors import folder_not_found, message_not_found
+from app.services.mailbox.errors import folder_not_found, message_not_found, server_unavailable
 from app.services.mailbox.hosts import resolve_public_host, saves_sent_copy, server_settings
 
 log = logging.getLogger(__name__)
@@ -116,6 +116,10 @@ def _flag(flags: set[str], name: str) -> bool:
     return name in flags
 
 
+def _is_unavailable(result: object) -> bool:
+    return isinstance(result, AppError) and result.code == "mail_unavailable"
+
+
 # --- ящики -------------------------------------------------------------------------------
 
 
@@ -171,9 +175,21 @@ async def connect_account(
         with imap.ImapSession(imap_conn):
             pass
 
-    await asyncio.gather(
-        asyncio.to_thread(check_imap), asyncio.to_thread(smtp.check_login, smtp_conn)
+    imap_result, smtp_result = await asyncio.gather(
+        asyncio.to_thread(check_imap),
+        asyncio.to_thread(smtp.check_login, smtp_conn),
+        return_exceptions=True,
     )
+    if _is_unavailable(imap_result):
+        raise server_unavailable("IMAP", account.imap_host, account.imap_port)
+    if isinstance(imap_result, BaseException):
+        raise imap_result
+    # IMAP уже подтвердил пароль. Недоступный SMTP (например, хостинг закрыл исходящие
+    # SMTP-порты) не мешает читать почту, поэтому ящик сохраняем; отправка сообщит об ошибке.
+    if _is_unavailable(smtp_result):
+        log.warning("smtp check skipped: %s:%s unreachable", account.smtp_host, account.smtp_port)
+    elif isinstance(smtp_result, BaseException):
+        raise smtp_result
     session.add(account)
     await session.commit()
     return _out(account)
@@ -502,7 +518,12 @@ async def send_message(
     if len(raw) > get_settings().mail_max_send_bytes:
         raise AppError("message_too_large", "Письмо слишком большое.", 413)
     smtp_conn = await _smtp_conn(account)
-    await asyncio.to_thread(smtp.send, smtp_conn, msg, account.email, list(recipients))
+    try:
+        await asyncio.to_thread(smtp.send, smtp_conn, msg, account.email, list(recipients))
+    except AppError as exc:
+        if _is_unavailable(exc):
+            raise server_unavailable("SMTP", account.smtp_host, account.smtp_port) from None
+        raise
 
     # Письмо уже ушло: дальнейшие сбои не должны превращать ответ в ошибку.
     auto_saved = saves_sent_copy(account.smtp_host)

@@ -7,6 +7,16 @@ def unavailable() -> AppError:
     )
 
 
+def server_unavailable(kind: str, host: str, port: int) -> AppError:
+    """Как unavailable(), но называет сервер: видно, какой из двух не отвечает."""
+    return AppError(
+        "mail_unavailable",
+        f"Не удалось подключиться к {kind}-серверу {host}:{port}. Попробуйте позже.",
+        502,
+        retryable=True,
+    )
+
+
 def auth_failed() -> AppError:
     return AppError(
         "mail_auth_failed",

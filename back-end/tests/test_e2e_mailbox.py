@@ -388,3 +388,28 @@ async def test_mail_connection_is_protected_from_ssrf(monkeypatch, tmp_path, mai
         )
         assert_error(plain, 400, "mail_host_forbidden")
         assert mail.imap_logins == 0 and await w.rows(MailAccount) == []
+
+
+async def test_mail_connects_when_only_smtp_is_unreachable(world, mail):
+    """Хостинг может закрыть исходящие SMTP-порты: читать почту это не мешает."""
+    c = world.client
+    h = await world.user()
+    port = free_port()
+    created = await c.post("/mail/accounts", json=account_body(mail, smtp_port=port), headers=h)
+    assert created.status_code == 201, created.text
+
+    sent = await c.post(
+        f"/mail/accounts/{created.json()['id']}/send",
+        json={"to": ["a@example.com"], "text": "x"},
+        headers=h,
+    )
+    assert_error(sent, 502, "mail_unavailable", retryable=True)
+    assert f"SMTP-серверу 127.0.0.1:{port}" in sent.json()["message"]
+
+    # Неверный пароль по-прежнему не даёт сохранить ящик.
+    wrong = await c.post(
+        "/mail/accounts",
+        json=account_body(mail, email="other@mail.example.com", password="wrong", smtp_port=port),
+        headers=h,
+    )
+    assert_error(wrong, 400, "mail_auth_failed")
