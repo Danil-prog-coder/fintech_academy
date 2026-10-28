@@ -17,6 +17,7 @@ from urllib.parse import urlsplit
 from pydantic import ValidationError
 
 from app.core.config import Settings
+from app.llm.gigachat import make_ssl_context
 
 # sha256 ключа, который попал в историю git (коммит до 437c631). Его нужно отозвать.
 LEAKED_KEY_SHA256 = "ed58c60cb955f164543965ffd2c84ab6945c7fd8e0e9d4a4f57e309ba643f2e8"
@@ -86,20 +87,21 @@ def check_tls(settings: Settings) -> None:
     if bundle:
         path = Path(bundle)
         if not path.is_file():
-            fail(f"файл сертификата не найден: {path.resolve()} (запускайте из back-end/)")
-            return
-        if "BEGIN CERTIFICATE" not in path.read_text(errors="ignore"):
+            warn(f"файл сертификата не найден: {path.resolve()} — хватит встроенного")
+        elif "BEGIN CERTIFICATE" not in path.read_text(errors="ignore"):
             fail(f"{bundle} не PEM — нужен .crt/.pem в текстовом виде")
             return
-        count = path.read_text(errors="ignore").count("BEGIN CERTIFICATE")
-        ok(f"GIGACHAT_CA_BUNDLE={bundle}, сертификатов в файле: {count}")
+        else:
+            count = path.read_text(errors="ignore").count("BEGIN CERTIFICATE")
+            ok(f"GIGACHAT_CA_BUNDLE={bundle}, сертификатов в файле: {count}")
     else:
-        warn("GIGACHAT_CA_BUNDLE пуст — используется системное хранилище")
+        ok("GIGACHAT_CA_BUNDLE пуст — используется встроенный сертификат российского УЦ")
 
+    # Тот же контекст, что и у приложения: certifi + встроенный сертификат + бандл.
+    ctx = make_ssl_context(settings)
     for url in (settings.gigachat_auth_url, settings.gigachat_base_url):
         parts = urlsplit(url)
         host, port = parts.hostname or "", parts.port or 443
-        ctx = ssl.create_default_context(cafile=bundle or None)
         try:
             with socket.create_connection((host, port), timeout=10) as sock:
                 with ctx.wrap_socket(sock, server_hostname=host) as tls:

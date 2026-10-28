@@ -117,7 +117,7 @@ docker compose up --build
 | `SECRET_KEY` | да | Ключ подписи JWT. На проде свой, не менее 32 символов |
 | `ENCRYPTION_KEY` | да | Ключ Fernet для токенов GitHub и паролей ящиков |
 | `GIGACHAT_CREDENTIALS` (или `GIGACHAT_AUTH_KEY`) | для LLM | Authorization key из [кабинета GigaChat](https://developers.sber.ru/studio) |
-| `GIGACHAT_CA_BUNDLE` | нет | Путь к сертификату УЦ, по умолчанию `certs/russian_trusted_root_ca.crt` |
+| `GIGACHAT_CA_BUNDLE` | нет | Доп. сертификат УЦ. Сертификат российского УЦ уже встроен в код (`app/llm/russian_ca.py`), так что переменная не обязательна |
 | `GIGACHAT_SCOPE`, `GIGACHAT_MODEL`, `GIGACHAT_EMBEDDINGS_MODEL` | нет | Область доступа и модели GigaChat |
 | `EMBEDDINGS_PROVIDER` | нет | `gigachat` (по умолчанию) или `cloudru` |
 | `API_KEY` (или `CLOUDRU_API_KEY`) | для `cloudru` | Ключ Cloud.ru для эмбеддингов |

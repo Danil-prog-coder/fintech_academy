@@ -8,10 +8,12 @@ import asyncio
 import json
 import logging
 import os
+import ssl
 import time
 import uuid
 from collections.abc import AsyncIterator, Callable
 
+import certifi
 import httpx
 
 from app.core.config import Settings
@@ -22,6 +24,7 @@ from app.llm.base import (
     LLMUnavailableError,
     Message,
 )
+from app.llm.russian_ca import RUSSIAN_TRUSTED_CA
 
 log = logging.getLogger(__name__)
 
@@ -83,8 +86,8 @@ class GigaChatAuth:
         except httpx.HTTPError as exc:
             if "CERTIFICATE_VERIFY_FAILED" in str(exc):
                 log.error(
-                    "GigaChat: TLS-сертификат не принят. Нужен сертификат российского УЦ: "
-                    "python scripts/setup_env.py --fetch-ca (см. README)."
+                    "GigaChat: TLS-сертификат не принят, хотя сертификат российского УЦ встроен. "
+                    "Проверьте GIGACHAT_AUTH_URL и прокси/VPN между сервером и GigaChat."
                 )
             raise LLMUnavailableError(PROVIDER) from None
         if r.status_code in (400, 401, 403):
@@ -329,18 +332,29 @@ def build_gigachat(
     return llm, embeddings
 
 
-def make_http_client(settings: Settings) -> httpx.AsyncClient:
-    """Клиент с проверкой TLS. Для сертификата российского УЦ — GIGACHAT_CA_BUNDLE."""
-    verify: str | bool = True
-    if settings.gigachat_ca_bundle:
-        if os.path.isfile(settings.gigachat_ca_bundle):
-            verify = settings.gigachat_ca_bundle
+def make_ssl_context(settings: Settings) -> ssl.SSLContext:
+    """Хранилище certifi + встроенный сертификат российского УЦ (+ GIGACHAT_CA_BUNDLE, если задан).
+
+    Встроенный сертификат есть всегда, поэтому неверный или пустой GIGACHAT_CA_BUNDLE
+    не ломает TLS до GigaChat.
+    """
+    ctx = ssl.create_default_context(cafile=certifi.where())
+    ctx.load_verify_locations(cadata=RUSSIAN_TRUSTED_CA)
+    bundle = settings.gigachat_ca_bundle
+    if bundle:
+        if os.path.isfile(bundle):
+            ctx.load_verify_locations(cafile=bundle)
         else:
-            log.error(
-                "GIGACHAT_CA_BUNDLE=%s не найден: используется системное хранилище сертификатов "
-                "(для GigaChat нужен сертификат российского УЦ, см. README)",
-                settings.gigachat_ca_bundle,
+            log.warning(
+                "GIGACHAT_CA_BUNDLE=%s не найден: используется встроенный сертификат российского УЦ",
+                bundle,
             )
+    return ctx
+
+
+def make_http_client(settings: Settings) -> httpx.AsyncClient:
+    """Клиент с проверкой TLS, доверяющий российскому УЦ (см. make_ssl_context)."""
+    verify: ssl.SSLContext | bool = make_ssl_context(settings)
     if not settings.gigachat_verify_ssl:
         log.warning("GIGACHAT_VERIFY_SSL=false: проверка TLS отключена, только для отладки")
         verify = False

@@ -1,5 +1,6 @@
 import asyncio
 import json
+from types import SimpleNamespace
 
 import httpx
 import pytest
@@ -11,7 +12,12 @@ from app.llm.base import (
     LLMUnavailableError,
     Message,
 )
-from app.llm.gigachat import GigaChatAuth, GigaChatEmbeddings, GigaChatProvider
+from app.llm.gigachat import (
+    GigaChatAuth,
+    GigaChatEmbeddings,
+    GigaChatProvider,
+    make_ssl_context,
+)
 
 AUTH_URL = "https://auth.test/oauth"
 BASE = "https://api.test/v1"
@@ -271,3 +277,13 @@ async def test_embeddings_retry_on_503(http, clock):
     _, _, emb = make(http, clock)
     assert len(await emb.embed(["a"])) == 1
     assert route.call_count == 2
+
+
+@pytest.mark.parametrize("bundle", ["", "/nonexistent/ca.pem"])
+def test_ssl_context_trusts_russian_ca_without_bundle(bundle):
+    ctx = make_ssl_context(SimpleNamespace(gigachat_ca_bundle=bundle))
+    names = {
+        dict(x[0] for x in cert["subject"]).get("commonName") for cert in ctx.get_ca_certs()
+    }
+    assert {"Russian Trusted Root CA", "Russian Trusted Sub CA"} <= names
+    assert len(names) > 2  # certifi тоже на месте: Cloud.ru и прочие хосты не сломаются
