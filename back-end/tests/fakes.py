@@ -111,6 +111,7 @@ class FakeGitHub:
         self.created_hooks: list[dict] = []
         self.deleted_hooks: list[str] = []
         self.hooks_allowed = True
+        self.no_issues_tokens: set[str] = set()  # fine-grained токены без права Issues
 
     def repo(self, owner: str, name: str) -> FakeRepoState:
         return self.repos.setdefault(f"{owner}/{name}".lower(), FakeRepoState())
@@ -181,6 +182,8 @@ class FakeGitHub:
             ] + [{"filename": p, "status": "removed"} for p in a if p not in b]
             return httpx.Response(200, json={"files": files, "total_commits": 1})
         if rest == "/issues":
+            if token in self.no_issues_tokens:
+                return httpx.Response(403, json={"message": "Resource not accessible by personal access token"})
             page = int(request.url.params.get("page", "1"))
             return httpx.Response(200, json=repo.issues if page == 1 else [])
         return httpx.Response(404)

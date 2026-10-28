@@ -273,6 +273,18 @@ async def test_repository_management_webhooks_and_cleanup(world):
     assert len(await world.rows(Repository)) == 1
 
 
+async def test_token_without_issues_permission_indexes_files(world):
+    # Fine-grained токен без права Issues: файлы индексируются, issues пропускаются.
+    h = await world.user()
+    world.github.no_issues_tokens.add("ghp_files_only")
+    await world.connect(h, github_token="ghp_files_only")
+    await world.run_worker()
+    status = (await world.client.get("/repo/status", headers=h)).json()
+    assert (status["status"], status["last_error"]) == ("ready", None)
+    paths = {ch.path for ch in await world.rows(Chunk)}
+    assert "README.md" in paths and not any(p.startswith(("issues/", "prs/")) for p in paths)
+
+
 async def test_failures_retries_reauth_and_stale_jobs(world):
     c = world.client
     h = await world.user()

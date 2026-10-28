@@ -101,6 +101,10 @@ class GitHubClient:
             raise GitHubUnavailableError from None
 
     @staticmethod
+    def _rate_limited(r: httpx.Response) -> bool:
+        return r.headers.get("x-ratelimit-remaining") == "0" or "rate limit" in r.text.lower()
+
+    @staticmethod
     def _check(r: httpx.Response, *, has_token: bool) -> None:
         """Переводит коды GitHub в наши исключения; 2xx проходит."""
         if r.status_code < 400:
@@ -108,7 +112,7 @@ class GitHubClient:
         if r.status_code == 401:
             raise GitHubAuthError
         if r.status_code == 403:
-            if r.headers.get("x-ratelimit-remaining") == "0" or "rate limit" in r.text.lower():
+            if GitHubClient._rate_limited(r):
                 raise GitHubUnavailableError
             raise GitHubAuthError
         if r.status_code == 404:
@@ -217,6 +221,9 @@ class GitHubClient:
                 params={"state": "all", "per_page": 100, "page": page},
             )
             if r.status_code in (404, 410):  # issues отключены в репозитории
+                break
+            if r.status_code == 403 and not self._rate_limited(r):
+                # У fine-grained токена нет права Issues: файлы уже прочитаны, issues пропускаем.
                 break
             self._check(r, has_token=bool(token))
             batch = r.json()
