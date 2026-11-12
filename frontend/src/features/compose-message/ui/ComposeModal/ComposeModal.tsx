@@ -20,6 +20,7 @@ import {
   selectComposeSeq,
   type ComposeInit,
 } from '../../model/composeSlice';
+import { AiReplyPanel } from '../AiReplyPanel/AiReplyPanel';
 import { AskAiPanel } from '../AskAiPanel/AskAiPanel';
 
 const MAX_ATTACHMENTS = 20;
@@ -206,6 +207,15 @@ const ComposeForm = ({ accountId, init }: ComposeFormProps) => {
             setBody(event.target.value);
           }}
         />
+        {init.thread.length > 0 ? (
+          <AiReplyPanel
+            body={body}
+            onBodyChange={setBody}
+            subject={subject}
+            thread={init.thread}
+            quote={init.body.trim()}
+          />
+        ) : null}
         {files.length > 0 ? (
           <ul className={styles.files}>
             {files.map((file, index) => (

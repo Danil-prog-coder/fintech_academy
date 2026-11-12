@@ -45,3 +45,29 @@ class MailAskResponse(BaseModel):
     recommendation: Recommendation
     index_commit: str | None
     provider: str | None
+
+
+class ReplyDraftRequest(BaseModel):
+    """Черновик ответа на письмо. Содержимое не сохраняется (FR-MAIL-05)."""
+
+    thread: list[ThreadMessage] = Field(
+        min_length=1,
+        max_length=50,
+        description="Переписка; последнее письмо — то, на которое отвечаем.",
+    )
+    subject: str | None = Field(default=None, max_length=500)
+    notes: str | None = Field(
+        default=None,
+        max_length=20000,
+        description="Что пользователь уже написал или хочет сказать.",
+    )
+
+
+class ReplyDraftResponse(BaseModel):
+    question_log_id: int  # к нему крепится оценка
+    draft: str = Field(description="Текст ответа без номеров фрагментов.")
+    sources: list[Source]
+    todo: list[str] = Field(description="Что пользователю нужно уточнить самому.")
+    used_project: bool = Field(description="Искали ли подтверждения в индексе проекта.")
+    index_commit: str | None
+    provider: str | None

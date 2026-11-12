@@ -207,11 +207,37 @@ def _stems(text: str) -> set[str]:
 
 _FRAGMENT = re.compile(r'<фрагмент n="(\d+)" path="([^"]*)" lines="([^"]*)">\n(.*?)\n</фрагмент>', re.DOTALL)
 _QUESTION = re.compile(r"<вопрос>\n(.*?)\n</вопрос>", re.DOTALL)
+_LETTER = re.compile(r"<письмо>\n(.*?)\n</письмо>", re.DOTALL)
+
+
+def reply_letter(user: str) -> str:
+    """Черновик ответа: на каждый вопрос письма строка из лучшего фрагмента или «уточнить»."""
+    letter = _LETTER.search(user)[1]
+    questions = [q.strip() for q in re.findall(r"[^?.!\n]*\?", letter) if len(q.strip()) > 1]
+    fragments = _FRAGMENT.findall(user)
+    paragraphs = ["Здравствуйте!"]
+    for question in questions or [letter]:
+        wanted = _stems(question)
+        scored = sorted(
+            ((len(wanted & _stems(text)), int(n), text) for n, _p, _l, text in fragments),
+            reverse=True,
+        )
+        if scored and scored[0][0]:
+            _, n, text = scored[0]
+            line = max(
+                (x for x in text.splitlines() if x.strip()), key=lambda x: len(wanted & _stems(x))
+            )
+            paragraphs.append(f"{line.strip()[:160]} [{n}]")
+        else:
+            paragraphs.append(f"[уточнить: {question[:80]}]")
+    return "\n\n".join([*paragraphs, "С уважением,"])
 
 
 def chat_reply(messages: list[dict]) -> str:
     """Что ответила бы «нейросеть» на запрос проверки оффтопа или на вопрос по контексту."""
     system, user = messages[0]["content"], messages[-1]["content"]
+    if _LETTER.search(user):
+        return reply_letter(user)
     question = (_QUESTION.search(user) or [None, user])[1]
     if SCOPE_MARK in system:
         offtopic = any(w in question.lower() for w in OFFTOPIC_WORDS)

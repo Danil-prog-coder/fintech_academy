@@ -1,6 +1,7 @@
 export {
   useAskAboutDraftMutation,
   useAskMutation,
+  useDraftReplyMutation,
   useGetConversationQuery,
   useSendFeedbackMutation,
 } from './api/qaApi';
@@ -14,6 +15,7 @@ export type {
   MailAskResponse,
   QuestionResult,
   Recommendation,
+  ReplyDraftResponse,
   Source,
   ThreadMessage,
 } from './model/types';

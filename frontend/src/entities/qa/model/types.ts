@@ -69,6 +69,25 @@ export interface MailAskResponse {
   provider: string | null;
 }
 
+export interface ReplyDraftRequest {
+  /** Переписка; последнее письмо — то, на которое отвечаем. */
+  thread: ThreadMessage[];
+  subject?: string;
+  /** Что пользователь уже написал: ИИ учитывает это как пожелания к ответу. */
+  notes?: string;
+}
+
+export interface ReplyDraftResponse {
+  question_log_id: number;
+  draft: string;
+  sources: Source[];
+  /** Чего ИИ не нашёл в проекте и пометил в тексте «[уточнить: …]». */
+  todo: string[];
+  used_project: boolean;
+  index_commit: string | null;
+  provider: string | null;
+}
+
 export type FeedbackTarget = { message_id: number } | { question_log_id: number };
 
 export type FeedbackRequest = FeedbackTarget & { helpful: boolean; comment?: string };
