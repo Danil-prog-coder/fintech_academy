@@ -89,6 +89,11 @@ class Settings(BaseSettings):
     mail_allow_private_hosts: bool = False
     mail_max_send_bytes: int = 25 * 1024 * 1024
     mail_max_attachment_bytes: int = 25 * 1024 * 1024
+    # Вложения черновика для «Спросить у ИИ»: размер одного файла, всех вместе и сколько
+    # символов их текста попадает в контекст одного вопроса.
+    mail_ask_attachment_bytes: int = 10 * 1024 * 1024
+    mail_ask_attachments_total_bytes: int = 20 * 1024 * 1024
+    mail_ask_context_chars: int = 12_000
 
 
 @lru_cache

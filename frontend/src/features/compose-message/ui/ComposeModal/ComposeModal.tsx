@@ -2,6 +2,7 @@ import { Paperclip, Save, Send, X } from 'lucide-react';
 import { useRef, useState } from 'react';
 
 import {
+  formatSize,
   useDeleteMessageMutation,
   useSaveDraftMutation,
   useSendMessageMutation,
@@ -10,9 +11,10 @@ import {
 import { getErrorMessage } from '@/shared/api';
 import { useAppDispatch, useAppSelector } from '@/shared/lib/store';
 import { showToast } from '@/shared/lib/toast';
-import { Button, IconButton, Modal, Notice, TextField } from '@/shared/ui';
+import { Badge, Button, IconButton, Modal, Notice, TextField } from '@/shared/ui';
 
 import styles from './ComposeModal.module.css';
+import { aiSupport, aiSupportLabel } from '../../lib/aiAttachments';
 import { fileToBase64, invalidAddresses, splitAddresses } from '../../lib/files';
 import {
   composeClosed,
@@ -129,10 +131,13 @@ const ComposeForm = ({ accountId, init }: ComposeFormProps) => {
     }, false);
 
   const addFiles = (list: FileList | null) => {
-    if (!list) {
+    // FileList «живой»: после сброса value у input он пустеет, поэтому копируем сразу,
+    // а не внутри функции обновления состояния (она выполняется позже).
+    const picked = list ? Array.from(list) : [];
+    if (picked.length === 0) {
       return;
     }
-    setFiles((current) => [...current, ...Array.from(list)].slice(0, MAX_ATTACHMENTS));
+    setFiles((current) => [...current, ...picked].slice(0, MAX_ATTACHMENTS));
   };
 
   return (
@@ -222,6 +227,10 @@ const ComposeForm = ({ accountId, init }: ComposeFormProps) => {
               <li key={`${file.name}-${String(index)}`} className={styles.file}>
                 <Paperclip size={16} />
                 <span className={styles.fileName}>{file.name}</span>
+                <span className={styles.fileSize}>{formatSize(file.size)}</span>
+                <Badge tone={aiSupport(file) === 'ok' ? 'info' : 'neutral'} plain>
+                  {aiSupportLabel[aiSupport(file)]}
+                </Badge>
                 <IconButton
                   label={`Убрать ${file.name}`}
                   size="sm"
@@ -255,7 +264,13 @@ const ComposeForm = ({ accountId, init }: ComposeFormProps) => {
             Прикрепить файл
           </Button>
         </div>
-        <AskAiPanel body={body} subject={subject} recipients={to} thread={init.thread} />
+        <AskAiPanel
+          body={body}
+          subject={subject}
+          recipients={to}
+          thread={init.thread}
+          files={files}
+        />
         {error ? <Notice tone="danger">{error}</Notice> : null}
       </div>
     </Modal>

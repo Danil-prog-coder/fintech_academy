@@ -1,5 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -10,6 +11,18 @@ class ThreadMessage(BaseModel):
     author: str | None = Field(default=None, max_length=320)
     text: str = Field(max_length=20000)
     sent_at: datetime | None = None
+
+
+# ~10 МБ в base64. Точный лимит на файл — в настройках; этот защищает от гигантских тел.
+MAX_ATTACHMENT_BASE64 = 14_000_000
+
+
+class DraftAttachment(BaseModel):
+    """Файл, приложенный к черновику. Его текст становится контекстом для ответов."""
+
+    filename: str = Field(min_length=1, max_length=255)
+    content_type: str | None = Field(default=None, max_length=200)
+    content_base64: str = Field(max_length=MAX_ATTACHMENT_BASE64)
 
 
 class MailAskRequest(BaseModel):
@@ -23,6 +36,11 @@ class MailAskRequest(BaseModel):
     thread: list[ThreadMessage] = Field(
         default_factory=list, max_length=50, description="Цепочка текущей переписки."
     )
+    attachments: list[DraftAttachment] = Field(
+        default_factory=list,
+        max_length=10,
+        description="Вложения черновика: txt/md/csv/код, PDF, DOCX. Не сохраняются.",
+    )
 
 
 class Recommendation(StrEnum):
@@ -30,6 +48,16 @@ class Recommendation(StrEnum):
     partial = "partial"
     no_answer = "no_answer"  # ответа нет, отправьте письмо
     out_of_scope = "out_of_scope"  # вопросы не относятся к проекту
+
+
+class AttachmentInfo(BaseModel):
+    """Что удалось взять из вложения."""
+
+    filename: str
+    status: Literal["read", "unsupported", "too_large", "empty", "unreadable"]
+    chars: int = Field(description="Сколько символов текста извлечено.")
+    truncated: bool = Field(description="Текст слишком длинный, учтено только начало.")
+    message: str | None = Field(description="Причина, если файл не учтён.")
 
 
 class QuestionResult(BaseModel):
@@ -45,6 +73,7 @@ class MailAskResponse(BaseModel):
     recommendation: Recommendation
     index_commit: str | None
     provider: str | None
+    attachments: list[AttachmentInfo] = Field(default_factory=list)
 
 
 class ReplyDraftRequest(BaseModel):

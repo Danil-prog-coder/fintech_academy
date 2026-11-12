@@ -6,12 +6,15 @@ export {
   useSendFeedbackMutation,
 } from './api/qaApi';
 export { describeAskError, type AskErrorInfo } from './lib/describeAskError';
-export { answerStatusLabel, recommendationText } from './lib/labels';
+export { answerStatusLabel, attachmentStatusLabel, recommendationText } from './lib/labels';
 export type {
   AnswerResponse,
   AnswerStatus,
+  AttachmentInfo,
+  AttachmentStatus,
   ChatMessage,
   Conversation,
+  DraftAttachment,
   MailAskResponse,
   QuestionResult,
   Recommendation,

@@ -1,4 +1,12 @@
-import { type AnswerStatus, type Recommendation } from '../model/types';
+import { type AnswerStatus, type AttachmentStatus, type Recommendation } from '../model/types';
+
+export const attachmentStatusLabel: Record<AttachmentStatus, string> = {
+  read: 'Учтено',
+  unsupported: 'Формат не читается',
+  too_large: 'Слишком большой',
+  empty: 'Нет текста',
+  unreadable: 'Не удалось прочитать',
+};
 
 export const answerStatusLabel: Record<AnswerStatus, string> = {
   answered: 'Ответ найден',

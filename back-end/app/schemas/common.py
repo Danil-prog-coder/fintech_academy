@@ -21,12 +21,12 @@ class AnswerStatus(StrEnum):
 class Source(BaseModel):
     """Источник утверждения в ответе."""
 
-    id: int  # для GET /sources/{id}
-    path: str
-    kind: str  # code | doc | issue | pr
-    commit_sha: str
-    snippet: str
-    url: str  # ссылка на файл в GitHub
+    id: int | None  # для GET /sources/{id}; None у вложений письма (их нет в индексе)
+    path: str  # путь в репозитории или имя вложения
+    kind: str  # code | doc | issue | pr | attachment
+    commit_sha: str | None  # None у вложений
+    snippet: str  # у вложений — фрагмент целиком
+    url: str | None  # ссылка на файл в GitHub; None у вложений
 
 
 ERROR_RESPONSES = {

@@ -16,6 +16,7 @@ dependencies = [
     "cryptography>=43",
     "nh3>=0.2.18",
     "pgvector>=0.3",
+    "pypdf>=5",
 ]
 
 [project.optional-dependencies]

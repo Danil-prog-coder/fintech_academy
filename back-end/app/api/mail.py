@@ -11,12 +11,14 @@ from app.llm.base import EmbeddingProvider, LLMProvider
 from app.llm.deps import get_embeddings_optional, get_llm_optional
 from app.schemas.common import ERROR_RESPONSES
 from app.schemas.mail import (
+    AttachmentInfo,
     MailAskRequest,
     MailAskResponse,
     QuestionResult,
     ReplyDraftRequest,
     ReplyDraftResponse,
 )
+from app.services.attachments import prepare_attachments
 from app.services.mail import extract_questions, recommend
 from app.services.qa import answer_question, question_hash
 from app.services.reply import draft_reply
@@ -33,16 +35,25 @@ async def mail_ask(
     embeddings: EmbeddingProvider | None = Depends(get_embeddings_optional),
     _: None = per_user("ask", 30),
 ):
-    """«Спросить у ИИ». Ничего не отправляет и не блокирует; текст письма не сохраняется."""
+    """«Спросить у ИИ». Ничего не отправляет и не блокирует; текст письма не сохраняется.
+
+    Текст вложений черновика (txt/код, PDF, DOCX) учитывается как контекст ответов; сами
+    файлы и их текст тоже нигде не сохраняются.
+    """
     repo = await require_askable_repo(session, user.id)
 
     # Переписка станет контекстом для LLM; пока её содержимое не используется и не хранится.
     history = [(m.author or "unknown", m.text) for m in body.thread]
+    attachments = await prepare_attachments(
+        [(a.filename, a.content_base64) for a in body.attachments], embeddings
+    )
 
     results: list[QuestionResult] = []
     last = None
     for question in extract_questions(body.draft):
-        last = await answer_question(session, repo, question, history, llm, embeddings)
+        last = await answer_question(
+            session, repo, question, history, llm, embeddings, attachments=attachments
+        )
         log = QuestionLog(
             user_id=user.id,
             source="mail",
@@ -67,6 +78,7 @@ async def mail_ask(
         recommendation=recommend([r.status for r in results]),
         index_commit=last.index_commit if last else None,
         provider=last.provider if last else None,
+        attachments=[AttachmentInfo(**vars(r)) for r in attachments.reports],
     )
 
 

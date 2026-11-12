@@ -1,12 +1,15 @@
 export type AnswerStatus = 'answered' | 'partial' | 'not_found' | 'out_of_scope';
 
 export interface Source {
-  id: number;
+  /** null у вложений письма: их нет в индексе. */
+  id: number | null;
+  /** Путь в репозитории или имя вложения. */
   path: string;
+  /** code | doc | issue | pr | attachment */
   kind: string;
-  commit_sha: string;
+  commit_sha: string | null;
   snippet: string;
-  url: string;
+  url: string | null;
 }
 
 export interface AskRequest {
@@ -45,11 +48,30 @@ export interface ThreadMessage {
   sent_at?: string;
 }
 
+/** Файл черновика, текст которого ИИ учитывает при ответе (txt/код, PDF, DOCX). */
+export interface DraftAttachment {
+  filename: string;
+  content_type?: string;
+  content_base64: string;
+}
+
 export interface MailAskRequest {
   draft: string;
   subject?: string;
   recipients?: string[];
   thread?: ThreadMessage[];
+  attachments?: DraftAttachment[];
+}
+
+export type AttachmentStatus = 'read' | 'unsupported' | 'too_large' | 'empty' | 'unreadable';
+
+/** Что ИИ удалось взять из вложения. */
+export interface AttachmentInfo {
+  filename: string;
+  status: AttachmentStatus;
+  chars: number;
+  truncated: boolean;
+  message: string | null;
 }
 
 export type Recommendation = 'answer_found' | 'partial' | 'no_answer' | 'out_of_scope';
@@ -67,6 +89,7 @@ export interface MailAskResponse {
   recommendation: Recommendation;
   index_commit: string | null;
   provider: string | null;
+  attachments: AttachmentInfo[];
 }
 
 export interface ReplyDraftRequest {

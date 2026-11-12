@@ -264,3 +264,63 @@ def chat_reply(messages: list[dict]) -> str:
         },
         ensure_ascii=False,
     )
+
+
+# --- файлы для вложений -----------------------------------------------------------------
+
+
+def make_pdf(lines: list[str]) -> bytes:
+    """Настоящий PDF с текстовым слоем (шрифт Helvetica, только латиница)."""
+
+    def esc(text: str) -> str:
+        return text.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+
+    ops = ["BT", "/F1 12 Tf", "14 TL", "72 760 Td"]
+    for line in lines:
+        ops += [f"({esc(line)}) Tj", "T*"]
+    ops.append("ET")
+    stream = "\n".join(ops).encode("latin-1")
+    objects = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        (
+            b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
+            b"/Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>"
+        ),
+        b"<< /Length %d >>\nstream\n" % len(stream) + stream + b"\nendstream",
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    ]
+    out = bytearray(b"%PDF-1.4\n")
+    offsets = []
+    for number, body in enumerate(objects, start=1):
+        offsets.append(len(out))
+        out += b"%d 0 obj\n" % number + body + b"\nendobj\n"
+    xref = len(out)
+    out += b"xref\n0 %d\n0000000000 65535 f \n" % (len(objects) + 1)
+    out += b"".join(b"%010d 00000 n \n" % off for off in offsets)
+    out += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (len(objects) + 1, xref)
+    return bytes(out)
+
+
+def make_docx(paragraphs: list[str], *, document_xml: bytes | None = None) -> bytes:
+    """Минимальный DOCX: архив с word/document.xml (этого хватает Word и парсерам)."""
+    import io
+    import zipfile
+    from xml.sax.saxutils import escape
+
+    ns = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+    body = "".join(f"<w:p><w:r><w:t>{escape(p)}</w:t></w:r></w:p>" for p in paragraphs)
+    xml = document_xml or (
+        f'<?xml version="1.0" encoding="UTF-8"?><w:document xmlns:w="{ns}"><w:body>{body}'
+        "</w:body></w:document>"
+    ).encode()
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr(
+            "[Content_Types].xml",
+            '<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/'
+            'content-types"><Override PartName="/word/document.xml" ContentType="application/'
+            'vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>',
+        )
+        z.writestr("word/document.xml", xml)
+    return buf.getvalue()
