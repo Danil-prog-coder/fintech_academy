@@ -126,6 +126,12 @@ def _state_file(project_id: str) -> Path:
     return p
 
 
+def project_ids() -> list[str]:
+    """Projects that have a state file (at least one indexing attempt)."""
+    d = Path(get_settings().state_dir) / "projects"
+    return sorted(p.stem for p in d.glob("*.json")) if d.exists() else []
+
+
 def load_state(project_id: str) -> dict:
     f = _state_file(project_id)
     if f.exists():

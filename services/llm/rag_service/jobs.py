@@ -32,8 +32,11 @@ def get(job_id: str) -> dict | None:
     return db.one(sa.select(J).where(J.c.job_id == job_id))
 
 
-def recent(limit: int = 20) -> list[dict]:
-    return db.rows(sa.select(J).order_by(J.c.created_at.desc()).limit(limit))
+def recent(limit: int = 20, project_id: str | None = None) -> list[dict]:
+    q = sa.select(J)
+    if project_id:
+        q = q.where(J.c.project_id == project_id)
+    return db.rows(q.order_by(J.c.created_at.desc()).limit(limit))
 
 
 def _update(job_id: str, **values) -> None:

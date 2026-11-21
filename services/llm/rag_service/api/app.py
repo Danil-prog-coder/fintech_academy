@@ -82,10 +82,11 @@ def _background_workers() -> None:
         def faq_loop():
             while True:
                 time.sleep(s.faq_recompute_interval_s)
-                try:
-                    get_faq().recompute(s.default_project_id)
-                except Exception as e:  # noqa: BLE001
-                    log.warning("faq recompute: %s", e)
+                for pid in store.project_ids() or [s.default_project_id]:  # every project, not only the default one
+                    try:
+                        get_faq().recompute(pid)
+                    except Exception as e:  # noqa: BLE001
+                        log.warning("faq recompute %s: %s", pid, e)
         threading.Thread(target=faq_loop, daemon=True, name="faq-recompute").start()
 
 
@@ -377,8 +378,8 @@ async def reindex(body: ReindexIn | None = None) -> dict:
 
 
 @app.get("/jobs", dependencies=[Depends(admin)])
-def job_list(limit: int = 20) -> dict:
-    return {"jobs": jobs.recent(min(limit, 100))}
+def job_list(limit: int = 20, project_id: str | None = None) -> dict:
+    return {"jobs": jobs.recent(min(limit, 100), project_id)}
 
 
 @app.get("/jobs/{job_id}", dependencies=[Depends(admin)])
