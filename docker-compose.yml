@@ -1,0 +1,160 @@
+# Платформа «вопросы по документации» — три сервиса:
+#
+#   llm   — скрытый RAG-сервис (агент, гибридный поиск, кэши). Наружу не публикуется,
+#           ходит в него только admin по внутренней сети.
+#   admin — ядро платформы: открытый API /v1 для интеграций, сайт для владельцев, админов и ТП,
+#           эскалации и Jira. Наружу — через admin-web (nginx), порт ${ADMIN_PORT:-3001}.
+#   mail  — демо-интеграция: почтовый клиент со своими пользователями, работает с платформой
+#           через /v1 как любой внешний сервис. Наружу — порт ${MAIL_PORT:-3000}.
+#
+# Запуск: заполнить services/*/.env по .env.example и выполнить  docker compose up -d --build
+
+name: platform
+
+services:
+  # ------------------------------------------------------------------ mail (демо-интеграция)
+  mail-web:
+    build: ./services/mail/frontend
+    restart: unless-stopped
+    ports: ["${MAIL_PORT:-3000}:80"]
+    depends_on:
+      mail-api: {condition: service_healthy}
+    networks: [mail_net]
+
+  mail-api:
+    build: ./services/mail/backend
+    restart: unless-stopped
+    env_file: ./services/mail/backend/.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://mail:${MAIL_DB_PASSWORD:-mail}@mail-db:5432/mail
+      PLATFORM_URL: http://admin:8000
+    depends_on:
+      mail-db: {condition: service_healthy}
+      admin: {condition: service_healthy}
+    # mail видит платформу только как внешний клиент: сеть с admin, но не с llm и не с их базами
+    networks: [mail_net, platform_public]
+
+  mail-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mail
+      POSTGRES_PASSWORD: ${MAIL_DB_PASSWORD:-mail}
+      POSTGRES_DB: mail
+    volumes: [mail_db:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mail -d mail"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [mail_net]
+
+  # ------------------------------------------------------------------ admin (ядро платформы)
+  admin-web:
+    build: ./services/admin/frontend
+    restart: unless-stopped
+    ports: ["${ADMIN_PORT:-3001}:80"]
+    depends_on:
+      admin: {condition: service_healthy}
+    networks: [platform_public]
+
+  admin:
+    build: ./services/admin/backend
+    restart: unless-stopped
+    env_file: ./services/admin/backend/.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://admin:${ADMIN_DB_PASSWORD:-admin}@admin-db:5432/admin
+      REDIS_URL: redis://redis:6379/1
+      RAG_URL: http://llm:8080
+    depends_on:
+      admin-db: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      llm: {condition: service_started}
+    networks: [platform_public, platform_internal]
+
+  admin-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: ${ADMIN_DB_PASSWORD:-admin}
+      POSTGRES_DB: admin
+    volumes: [admin_db:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d admin"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [platform_internal]
+
+  # ------------------------------------------------------------------ llm (скрытый RAG)
+  llm:
+    build: ./services/llm
+    restart: unless-stopped
+    env_file: ./services/llm/.env
+    environment:
+      QDRANT_URL: http://qdrant:6333
+      REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: postgresql+pg8000://rag:${RAG_DB_PASSWORD:-rag}@llm-db:5432/rag
+      STATE_DIR: /app/var
+      KB_DIR: /app/var/uploads
+      VISION_CACHE_DIR: /app/data/vision_cache
+    volumes: [llm_var:/app/var]
+    depends_on:
+      qdrant: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      llm-db: {condition: service_healthy}
+    # только внутренняя сеть: из интернета и из mail сервис недоступен
+    networks: [platform_internal]
+
+  llm-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: rag
+      POSTGRES_PASSWORD: ${RAG_DB_PASSWORD:-rag}
+      POSTGRES_DB: rag
+    volumes: [llm_db:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rag -d rag"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [platform_internal]
+
+  qdrant:
+    image: qdrant/qdrant:v1.20.1
+    restart: unless-stopped
+    volumes: [qdrant:/qdrant/storage]
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/6333 && printf \"GET /readyz HTTP/1.0\\r\\n\\r\\n\" >&3 && grep -q 200 <&3'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [platform_internal]
+
+  redis:
+    image: redis:7.2-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes: [redis:/data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [platform_internal]
+
+networks:
+  mail_net: {}
+  platform_public: {}
+  platform_internal:
+    internal: false  # llm ходит к провайдерам моделей; внешний порт не публикуется ни у одного сервиса этой сети
+
+volumes:
+  mail_db: {}
+  admin_db: {}
+  llm_db: {}
+  llm_var: {}
+  qdrant: {}
+  redis: {}

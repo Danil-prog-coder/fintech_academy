@@ -12,3 +12,5 @@ dist/
 services/llm/var/
 services/llm/data/kb/
 backup.tar.gz
+*.egg-info/
+node_modules
