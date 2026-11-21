@@ -1,0 +1,44 @@
+.icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: var(--color-text-inverse);
+  border-radius: var(--radius-sm);
+  box-shadow: inset -6px 0 0 rgb(255 255 255 / 18%);
+}
+
+.sm {
+  width: 28px;
+  height: 28px;
+  font-size: var(--font-size-xs);
+}
+
+.md {
+  width: 36px;
+  height: 36px;
+  font-size: var(--font-size-md);
+}
+
+.lg {
+  width: 44px;
+  height: 44px;
+  font-size: var(--font-size-lg);
+}
+
+.pptx {
+  background-color: var(--color-file-pptx);
+}
+
+.xlsx {
+  background-color: var(--color-file-xlsx);
+}
+
+.docx {
+  background-color: var(--color-file-docx);
+}
+
+.pdf {
+  background-color: var(--color-file-pdf);
+}

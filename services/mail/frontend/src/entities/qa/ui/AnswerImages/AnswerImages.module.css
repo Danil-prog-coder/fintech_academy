@@ -1,0 +1,12 @@
+.images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.image {
+  max-width: 100%;
+  max-height: 320px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
