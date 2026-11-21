@@ -1,12 +1,14 @@
 .env
+**/.env
+!**/.env.example
 .venv/
+**/.venv/
 __pycache__/
 *.pyc
+node_modules/
+dist/
 .pytest_cache/
 .ruff_cache/
-*.egg-info/
-.idea/
-
-# Сертификаты и секреты
-back-end/certs/*.pem
-back-end/certs/*.crt
+services/llm/var/
+services/llm/data/kb/
+backup.tar.gz

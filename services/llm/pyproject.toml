@@ -1,0 +1,58 @@
+[project]
+name = "rag-service"
+version = "0.1.0"
+description = "Скрытый RAG-сервис платформы: агент + гибридный поиск по документации проектов"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+# Только MIT / Apache-2.0 / BSD (без PyMuPDF и GPL-библиотек)
+dependencies = [
+  "fastapi>=0.115",            # MIT
+  "uvicorn[standard]>=0.30",   # BSD
+  "python-multipart>=0.0.9",   # Apache-2.0
+  "openai>=1.40",              # Apache-2.0
+  "qdrant-client>=1.12",       # Apache-2.0
+  "redis>=5.0",                # MIT
+  "pydantic>=2.7",             # MIT
+  "pydantic-settings>=2.3",    # MIT
+  "python-dotenv>=1.0",        # BSD
+  "python-docx>=1.1",          # MIT
+  "pdfplumber>=0.11",          # MIT
+  "pypdf>=4.0",                # BSD
+  "pillow>=10.0",              # MIT-CMU (HPND)
+  "rapidfuzz>=3.0",            # MIT
+  "snowballstemmer>=2.2",      # BSD
+  "tiktoken>=0.7",             # MIT
+  "numpy>=1.26",               # BSD
+  "PyYAML>=6.0",               # MIT
+  "httpx>=0.27",               # BSD
+  "filelock>=3.16",            # Unlicense (cross-process Confluence manifest lock)
+  "sqlalchemy>=2.0",           # MIT
+  "pg8000>=1.31",              # BSD (Postgres driver, pure Python)
+  "fastembed>=0.4",            # Apache-2.0 (question analytics fallback embedder, BAAI/bge-m3 — MIT)
+  "tzdata>=2024.1; sys_platform == 'win32'",  # Apache-2.0 (Windows has no system time-zone database)
+]
+
+[project.optional-dependencies]
+local-embeddings = ["fastembed>=0.4"]  # Apache-2.0
+ocr = ["rapidocr>=3.4", "onnxruntime>=1.18"]  # Apache-2.0 / MIT; модели PP-OCRv5 (Apache-2.0) — в OCR_MODELS_DIR
+dev = ["pytest>=8", "ruff>=0.5", "fakeredis>=2.20"]
+
+[tool.ruff]
+line-length = 140
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B"]
+ignore = ["E501", "B008", "B905", "E741", "B023"]  # B023: closures are called inside the same iteration
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["integration: needs running services and LLM keys (RAG_INTEGRATION=1)"]
+filterwarnings = ["ignore:Payload indexes have no effect in the local Qdrant:UserWarning"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["rag_service*"]
