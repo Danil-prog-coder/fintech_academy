@@ -289,7 +289,7 @@ class Settings(BaseSettings):
     model_prices: str = ""  # JSON: {"model": [usd_per_1M_input_tokens, usd_per_1M_output_tokens], ...}
 
     # --- knowledge from operators' answers (FR-ESC-06) and screenshot fragments (FR-ING-06) ---
-    support_answers_dir: str = "support_answers"  # sub-folder of KB_DIR
+    support_answers_dir: str = "support-answers"  # default section for answers saved from support (FR-ESC-06)
 
 
 @lru_cache

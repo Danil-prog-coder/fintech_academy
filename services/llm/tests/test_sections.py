@@ -106,3 +106,13 @@ def test_rollback_keeps_state_file_consistent(client):
     after = store.active_generation(PID)
     assert after != before
     assert {d["doc_id"] for d in store.active_manifest(PID)["documents"]} == {"vacation", "keys"}
+
+
+def test_support_answer_lands_in_the_project_and_is_indexed(client):
+    r = client.post("/knowledge", json={"project_id": PID, "question": "Где взять пропуск на парковку?",
+                                        "answer": "Пропуск ПАРКОВКА77 выдаёт охрана на первом этаже.", "wait": True})
+    assert r.status_code == 200, r.text
+    assert r.json()["section"] == "support-answers" and r.json()["job"]["status"] == "done"
+    docs = client.get("/documents", params={"project_id": PID}).json()["documents"]
+    assert any(d["section"] == "support-answers" for d in docs)
+    assert "ПАРКОВКА77" in _texts(search.search(PID, "пропуск на парковку ПАРКОВКА77", rerank=False)["results"])

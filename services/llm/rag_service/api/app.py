@@ -671,14 +671,17 @@ class KnowledgeIn(BaseModel):
     answer: str = Field(min_length=3, max_length=20000)
     author: str | None = Field(default=None, max_length=128)
     project_id: str | None = None
+    section: str | None = Field(default=None, max_length=40)
     wait: bool = False
 
 
 @app.post("/knowledge", dependencies=[Depends(service)])
 async def knowledge(body: KnowledgeIn) -> dict:
     """The answer is saved as a document «Ответ поддержки, <дата>» and indexed like any other document."""
+    if body.section is not None and not SECTION_RE.match(body.section):
+        raise HTTPException(422, "недопустимое имя раздела")
     return await asyncio.to_thread(save_knowledge, body.project_id or get_settings().default_project_id,
-                                   body.question, body.answer, body.author, body.wait)
+                                   body.question, body.answer, body.author, body.wait, body.section)
 
 
 # ------------------------------------------------------------------ FAQ (FR-FAQ-01..08)
