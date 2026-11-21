@@ -251,3 +251,4 @@ async def test_stats(env):
     s = (await env.client.get("/panel/api/stats", params={"days": 7})).json()
     assert s["questions"] == 1 and s["answered"] == 1 and s["unique_users"] == 1 and s["members"] == {"owner": 1, "user": 1}
     assert s["rag"] == {"topics": {"x": 1}}
+    assert len(s["by_day"]) == 7 and sum(d["total"] for d in s["by_day"]) == 1  # every day, quiet ones included

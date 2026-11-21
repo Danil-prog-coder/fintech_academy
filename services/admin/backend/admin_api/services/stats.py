@@ -18,6 +18,12 @@ from ..models import Escalation, EscalationStatus, Member, Project, Question, Qu
 from ..rag_client import RagError, RagUnavailable
 
 
+def _days(since, days: int) -> list[str]:
+    """Every day of the period (a chart with gaps on quiet days would mislead)."""
+    start = since.date()
+    return [(start + timedelta(days=i + 1)).isoformat() for i in range(days)]
+
+
 async def summary(core: Core, session: AsyncSession, project: Project, days: int) -> dict:
     since = utc_now() - timedelta(days=days)
     turns = (await session.scalars(select(Turn).where(Turn.project_id == project.id, Turn.created_at >= since)
@@ -51,7 +57,8 @@ async def summary(core: Core, session: AsyncSession, project: Project, days: int
         "escalations": {"open": sum(n for s, n in esc.items() if EscalationStatus(s).is_open),
                         "closed": sum(n for s, n in esc.items() if not EscalationStatus(s).is_open), "by_status": esc},
         "members": members,
-        "by_day": [{"date": d, "total": sum(c.values()), **dict(c)} for d, c in sorted(per_day.items())],
+        "by_day": [{"date": d, "total": sum(per_day.get(d, Counter()).values()), **dict(per_day.get(d, Counter()))}
+                   for d in _days(since, days)],
         "top_unanswered": [q for q, _ in Counter(t.question.strip().lower() for t in turns
                                                  if t.action == "offer_operator").most_common(10)],
     }

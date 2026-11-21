@@ -15,6 +15,7 @@ from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 
 from . import __version__, db, errors
 from .api import panel, public, v1
@@ -79,7 +80,7 @@ def create_app(settings: Settings | None = None, core: Core | None = None) -> Fa
         out = {"status": "ok", "version": __version__}
         try:
             async with db.sessionmaker()() as session:
-                await session.execute(db.text("select 1"))
+                await session.execute(text("select 1"))
             out["database"] = "ok"
         except Exception:  # noqa: BLE001
             out["database"], out["status"] = "error", "degraded"

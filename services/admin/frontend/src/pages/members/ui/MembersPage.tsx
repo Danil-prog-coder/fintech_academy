@@ -187,19 +187,21 @@ export const MembersPage = () => {
       </Notice>
       {isLoading ? <Skeleton height={120} /> : null}
       {error ? <Notice tone="danger">{getErrorMessage(error)}</Notice> : null}
-      <Card title={`Всего: ${String(data?.members.length ?? 0)}`}>
-        <ul className={layout.list}>
-          {data?.members.map((m) => (
-            <MemberRow
-              key={`${m.external_id}-${m.role}`}
-              m={m}
-              sections={sections?.sections ?? []}
-              isOwner={me?.role === 'owner'}
-              self={me?.external_id === m.external_id}
-            />
-          ))}
-        </ul>
-      </Card>
+      {data ? (
+        <Card title={`Всего: ${String(data.members.length)}`}>
+          <ul className={layout.list}>
+            {data.members.map((m) => (
+              <MemberRow
+                key={`${m.external_id}-${m.role}`}
+                m={m}
+                sections={sections?.sections ?? []}
+                isOwner={me?.role === 'owner'}
+                self={me?.external_id === m.external_id}
+              />
+            ))}
+          </ul>
+        </Card>
+      ) : null}
     </PanelLayout>
   );
 };

@@ -146,3 +146,8 @@ async def test_panel_requires_csrf_header_and_role(env):
     assert (await env.client.post("/panel/api/auth/logout")).status_code == 403  # no X-Requested-With
     assert (await env.client.post("/panel/api/auth/logout", headers=h)).status_code == 204
     assert (await env.client.get("/panel/api/me")).status_code == 401
+
+
+async def test_health_reports_database_and_rag(env):
+    body = (await env.client.get("/health")).json()
+    assert body == {"status": "ok", "version": body["version"], "database": "ok", "rag": "ok"}

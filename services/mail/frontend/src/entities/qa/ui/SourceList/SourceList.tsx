@@ -3,6 +3,16 @@ import { ExternalLink, FileText } from 'lucide-react';
 import styles from './SourceList.module.css';
 import { type Source } from '../../model/types';
 
+/** «Документ → раздел»: путь раздела у RAG уже начинается с названия документа — не повторяем его. */
+const sourcePath = (source: Source) => {
+  const title = source.document_title ?? '';
+  const path = source.section_path ?? '';
+  if (!path) {
+    return title;
+  }
+  return !title || path.startsWith(title) ? path : `${title} → ${path}`;
+};
+
 /** Источники ответа: документ, раздел и дословная цитата; ссылка открывает документ на нужном месте. */
 export const SourceList = ({ sources }: { sources: Source[] }) =>
   sources.length === 0 ? null : (
@@ -16,9 +26,7 @@ export const SourceList = ({ sources }: { sources: Source[] }) =>
               <span className={styles.commit}>
                 {source.citation_label ?? source.label ?? `[${String(index + 1)}]`}
               </span>
-              <span className={styles.path}>
-                {[source.document_title, source.section_path].filter(Boolean).join(' → ')}
-              </span>
+              <span className={styles.path}>{sourcePath(source)}</span>
               {source.url ? (
                 <a
                   className={styles.open}
