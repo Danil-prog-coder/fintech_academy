@@ -47,3 +47,18 @@ class MailAskResponse(BaseModel):
     project_id: str
     results: list[QuestionResult]
     recommendation: Recommendation
+
+
+class ReplyDraftRequest(BaseModel):
+    """«Ответить с ИИ»: черновик ответа на входящее письмо по документации проекта. Ничего не отправляет и не сохраняет."""
+
+    letter: str = Field(min_length=1, max_length=20000, description="Текст входящего письма, на которое отвечаем.")
+    subject: str | None = Field(default=None, max_length=500)
+    author: str | None = Field(default=None, max_length=320, description="Отправитель входящего письма.")
+
+
+class ReplyDraftResponse(BaseModel):
+    project_id: str
+    draft: str = Field(description="Готовый текст ответа; пометки «[уточнить: …]» пользователь дописывает сам.")
+    results: list[QuestionResult]
+    todo: list[str] = Field(description="Вопросы письма, ответа на которые в документации нет.")

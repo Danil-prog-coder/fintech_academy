@@ -1,4 +1,4 @@
-export { buildDraftEdit, buildForward, buildReply } from './lib/buildInit';
+export { buildDraftEdit, buildForward, buildReply, letterText } from './lib/buildInit';
 export {
   composeOpened,
   composeSlice,

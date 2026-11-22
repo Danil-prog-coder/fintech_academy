@@ -7,6 +7,7 @@ import {
   Pencil,
   Reply,
   ReplyAll,
+  Sparkles,
   Star,
   Trash2,
 } from 'lucide-react';
@@ -30,11 +31,13 @@ import {
   type MailMessage,
   type MessageRef,
 } from '@/entities/mailbox';
+import { describeAskError, useReplyDraftMutation } from '@/entities/qa';
 import {
   buildDraftEdit,
   buildForward,
   buildReply,
   composeOpened,
+  letterText,
 } from '@/features/compose-message';
 import { getErrorMessage } from '@/shared/api';
 import { useAppDispatch, useAppSelector } from '@/shared/lib/store';
@@ -85,6 +88,25 @@ const OpenMessage = ({ message, accountId, ownEmail }: OpenMessageProps) => {
 
   const files = message.attachments.filter((attachment) => !attachment.inline);
   const sender = message.sender;
+  const [replyDraft, { isLoading: drafting }] = useReplyDraftMutation();
+  // Ответ с ИИ — на чужие письма: вопросы из них ищутся в документации текущего проекта.
+  const incoming =
+    role !== 'sent' && sender !== null && sender.email.toLowerCase() !== ownEmail.toLowerCase();
+
+  const replyWithAi = () => {
+    replyDraft({
+      letter: letterText(message),
+      subject: message.subject || undefined,
+      author: sender ? addressFull(sender) : undefined,
+    })
+      .unwrap()
+      .then((ai) => {
+        dispatch(composeOpened(buildReply(message, ownEmail, false, ai)));
+      })
+      .catch((cause: unknown) => {
+        showToast(describeAskError(cause).message, 'danger');
+      });
+  };
 
   return (
     <article className={styles.message}>
@@ -110,6 +132,16 @@ const OpenMessage = ({ message, accountId, ownEmail }: OpenMessageProps) => {
             >
               Ответить
             </Button>
+            {incoming ? (
+              <Button
+                variant="soft"
+                icon={<Sparkles size={18} />}
+                disabled={drafting || !letterText(message)}
+                onClick={replyWithAi}
+              >
+                {drafting ? 'ИИ пишет ответ…' : 'Ответить с ИИ'}
+              </Button>
+            ) : null}
             <Button
               icon={<ReplyAll size={18} />}
               onClick={() => {

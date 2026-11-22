@@ -14,7 +14,7 @@ export const describeAskError = (error: unknown): AskErrorInfo => {
     case 'no_project':
     case 'not_a_member':
       return {
-        message: 'Создайте проект или попросите владельца добавить вас в проект.',
+        message: 'Создайте проект, войдите в проект по коду или попросите владельца добавить вас.',
         needsProject: true,
         retryable: false,
       };

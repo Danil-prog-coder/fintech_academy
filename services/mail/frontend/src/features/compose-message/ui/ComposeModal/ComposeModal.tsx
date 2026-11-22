@@ -21,6 +21,7 @@ import {
   selectComposeSeq,
   type ComposeInit,
 } from '../../model/composeSlice';
+import { AiReplyPanel } from '../AiReplyPanel/AiReplyPanel';
 import { AskAiPanel } from '../AskAiPanel/AskAiPanel';
 
 const MAX_ATTACHMENTS = 20;
@@ -42,6 +43,9 @@ const ComposeForm = ({ accountId, init }: ComposeFormProps) => {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+  // Черновик ИИ, вставленный в начало письма: «Написать заново» и «Убрать» заменяют только его.
+  const aiDraft = useRef<string | null>(init.ai?.draft ?? null);
+  const letter = init.thread[0] ?? null;
   const [send] = useSendMessageMutation();
   const [saveDraft] = useSaveDraftMutation();
   const [deleteMessage] = useDeleteMessageMutation();
@@ -127,6 +131,17 @@ const ComposeForm = ({ accountId, init }: ComposeFormProps) => {
       await saveDraft({ accountId, body: request }).unwrap();
       showToast('Черновик сохранён', 'success');
     }, false);
+
+  const placeAiDraft = (draft: string | null) => {
+    const previous = aiDraft.current;
+    const rest = previous && body.startsWith(previous) ? body.slice(previous.length) : body;
+    if (draft === null) {
+      setBody(rest);
+    } else {
+      setBody(rest === '' || rest.startsWith('\n') ? `${draft}${rest}` : `${draft}\n\n${rest}`);
+    }
+    aiDraft.current = draft;
+  };
 
   const addFiles = (list: FileList | null) => {
     // FileList «живой»: после сброса value у input он пустеет, поэтому копируем сразу,
@@ -250,6 +265,13 @@ const ComposeForm = ({ accountId, init }: ComposeFormProps) => {
             Прикрепить файл
           </Button>
         </div>
+        {letter ? (
+          <AiReplyPanel
+            letter={{ text: letter.text, author: letter.author, subject: init.subject }}
+            initial={init.ai}
+            onDraft={placeAiDraft}
+          />
+        ) : null}
         <AskAiPanel body={body} subject={subject} recipients={to} thread={init.thread} />
         {error ? <Notice tone="danger">{error}</Notice> : null}
       </div>

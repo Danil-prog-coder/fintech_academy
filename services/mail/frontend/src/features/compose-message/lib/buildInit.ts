@@ -1,4 +1,5 @@
 import { addressFull, formatFullDate, type Address, type MailMessage } from '@/entities/mailbox';
+import { type ReplyDraftResponse } from '@/entities/qa';
 
 import { emptyCompose, type ComposeInit } from '../model/composeSlice';
 
@@ -24,11 +25,15 @@ const quote = (text: string) =>
 const referencesOf = (message: MailMessage) =>
   [message.references, message.message_id].filter(Boolean).join(' ') || null;
 
-/** Ответ автору письма или всем участникам переписки. */
+/** Текст письма, на которое отвечаем: его вопросы уходят в «Ответить с ИИ». */
+export const letterText = (message: MailMessage) => plainText(message).slice(0, 20000);
+
+/** Ответ автору письма или всем участникам переписки; `ai` — черновик ИИ над цитатой исходного письма. */
 export const buildReply = (
   message: MailMessage,
   ownEmail: string,
   replyAll: boolean,
+  ai: ReplyDraftResponse | null = null,
 ): ComposeInit => {
   const own = ownEmail.toLowerCase();
   const others = (list: Address[]) =>
@@ -44,7 +49,7 @@ export const buildReply = (
         ).join(', ')
       : '',
     subject: withPrefix('Re', message.subject),
-    body: `\n\n${header}\n${quote(plainText(message))}`,
+    body: `${ai ? ai.draft : ''}\n\n${header}\n${quote(plainText(message))}`,
     inReplyTo: message.message_id,
     references: referencesOf(message),
     answered: { folder: message.folder, uid: message.uid },
@@ -55,6 +60,7 @@ export const buildReply = (
         sentAt: message.date,
       },
     ],
+    ai,
   };
 };
 

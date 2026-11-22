@@ -2,6 +2,7 @@ import { baseApi } from '@/shared/api';
 
 import {
   type CreatedProject,
+  type JoinedProject,
   type Member,
   type MemberPut,
   type ProjectsResponse,
@@ -16,6 +17,10 @@ export const projectApi = baseApi.injectEndpoints({
     }),
     createProject: build.mutation<CreatedProject, { name: string; login: string }>({
       query: (body) => ({ url: '/platform/projects', method: 'POST', body }),
+      invalidatesTags: ['Projects'],
+    }),
+    joinProject: build.mutation<JoinedProject, { project_code: string }>({
+      query: (body) => ({ url: '/platform/projects/join', method: 'POST', body }),
       invalidatesTags: ['Projects'],
     }),
     selectProject: build.mutation<{ current_project_id: string }, string>({
@@ -56,6 +61,7 @@ export const projectApi = baseApi.injectEndpoints({
 export const {
   useGetProjectsQuery,
   useCreateProjectMutation,
+  useJoinProjectMutation,
   useSelectProjectMutation,
   useGetMembersQuery,
   usePutMemberMutation,

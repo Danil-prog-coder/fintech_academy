@@ -76,6 +76,16 @@ class FakePlatform:
             ext = request.url.params.get("external_id")
             return httpx.Response(200, json={"projects": [{"id": pid, "name": p["name"], "role": p["members"][ext], "created_at": "t"}
                                                           for pid, p in self.projects.items() if ext in p["members"]]})
+        if path == "/v1/projects/join" and method == "POST":
+            pid = body["project_code"].split("-", 1)[0]
+            if pid not in self.projects or body["project_code"] != f"{pid}-{'s' * 24}":
+                return self._err(403, "bad_project_code", "Неверный код проекта")
+            members = self.projects[pid]["members"]
+            members.setdefault(body["external_id"], "admin")
+            return httpx.Response(200, json={"project": {"id": pid, "name": self.projects[pid]["name"],
+                                                         "role": members[body["external_id"]], "created_at": "t"},
+                                             "member": {"external_id": body["external_id"], "role": members[body["external_id"]]},
+                                             "panel_setup_url": "https://panel.test/setup?token=join"})
         if path == "/v1/events":
             after = int(request.url.params.get("after", 0))
             return httpx.Response(200, json={"events": [e for e in self.events if e["id"] > after]})

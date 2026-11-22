@@ -84,3 +84,9 @@
   background-color: var(--color-bg-subtle);
   border-radius: var(--radius-sm);
 }
+
+.hint {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}

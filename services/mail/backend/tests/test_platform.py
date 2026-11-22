@@ -81,3 +81,47 @@ async def test_platform_outage_is_a_clear_retryable_error(world):
     await world.client.post("/platform/projects", headers=h, json={"name": "П", "login": "dev"})
     world.platform.down = True
     assert_error(await world.client.post("/chat/ask", headers=h, json={"message": "Привет"}), 503, "platform_unavailable", True)
+
+
+async def test_join_a_project_as_admin_with_its_code(world):
+    owner = await world.user("owner@example.com")
+    helper = await world.user("helper@example.com")
+    created = (await world.client.post("/platform/projects", headers=owner, json={"name": "П", "login": "owner"})).json()
+    assert_error(await world.client.post("/platform/projects/join", headers=helper, json={"project_code": "nope"}),
+                 403, "bad_project_code")
+    r = await world.client.post("/platform/projects/join", headers=helper, json={"project_code": f"  {created['project_code']} "})
+    assert r.status_code == 200 and r.json()["project"]["role"] == "admin" and r.json()["panel_setup_url"]
+    call = [c for c in world.platform.calls if c[1] == "/v1/projects/join"][-1]
+    assert call[2] == {"external_id": "mail-user-2", "project_code": created["project_code"],
+                       "login": "helper@example.com", "display_name": "helper@example.com"}
+    projects = (await world.client.get("/platform/projects", headers=helper)).json()
+    assert projects["current_project_id"] == created["project"]["id"]
+
+
+async def test_reply_draft_answers_each_question_of_the_letter(world):
+    h = await world.user()
+    letter = {"letter": "Добрый день! Как оформить отпуск? И где лежит регламент?\n\nСпасибо.", "subject": "Отпуск",
+              "author": "Иван <ivan@example.com>"}
+    assert_error(await world.client.post("/mail/reply-draft", headers=h, json=letter), 409, "no_project")
+    await world.client.post("/platform/projects", headers=h, json={"name": "П", "login": "dev"})
+    r = await world.client.post("/mail/reply-draft", headers=h, json=letter)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert [x["question"] for x in body["results"]] == ["Как оформить отпуск?", "И где лежит регламент?"]
+    assert body["todo"] == [] and body["results"][0]["sources"][0]["document_title"] == "Регламент"
+    assert body["draft"].startswith("Здравствуйте!\n\nПо вопросу «Как оформить отпуск?»: Ответ на: Как оформить отпуск?")
+    assert body["draft"].endswith("С уважением,")
+    asked = [c[2] for c in world.platform.calls if c[1].endswith("/ask")]
+    assert asked[-1]["channel"] == "mail-reply" and "тема письма: Отпуск" in asked[-1]["message"]
+    # nothing in the documentation: the user fills it in himself, nothing is invented
+    world.platform.action = "offer_operator"
+    body = (await world.client.post("/mail/reply-draft", headers=h, json={"letter": "Сколько стоит парковка?"})).json()
+    assert body["todo"] == ["Сколько стоит парковка?"]
+    assert body["draft"] == "Здравствуйте!\n\n[уточнить: Сколько стоит парковка?]\n\nС уважением,"
+
+
+def test_reply_text_drops_citations_and_markdown():
+    from mail_api.services.mail import clean_answer
+
+    assert clean_answer("Оформляется в **кадровом портале** [1][2].\n\n\n\nСрок — 3 дня [3]. ") == \
+        "Оформляется в кадровом портале.\n\nСрок — 3 дня."

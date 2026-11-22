@@ -75,3 +75,19 @@ export interface Escalation {
   key: string;
   status: string;
 }
+
+/** «Ответить с ИИ»: входящее письмо, на которое пишем ответ. */
+export interface ReplyDraftRequest {
+  letter: string;
+  subject?: string;
+  author?: string;
+}
+
+export interface ReplyDraftResponse {
+  project_id: string;
+  /** Готовый текст ответа; пометки «[уточнить: …]» пользователь дописывает сам. */
+  draft: string;
+  results: QuestionResult[];
+  /** Вопросы письма, ответа на которые в документации нет. */
+  todo: string[];
+}

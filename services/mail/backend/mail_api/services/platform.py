@@ -58,6 +58,10 @@ class PlatformClient:
         return await self.call("POST", "/v1/projects", json={"name": name, "owner_external_id": owner,
                                                             "owner_login": login, "owner_display_name": display_name})
 
+    async def join_project(self, ext: str, project_code: str, login: str | None, display_name: str | None) -> dict:
+        return await self.call("POST", "/v1/projects/join", json={"external_id": ext, "project_code": project_code,
+                                                                 "login": login, "display_name": display_name})
+
     async def projects_of(self, ext: str) -> list[dict]:
         return (await self.call("GET", "/v1/projects", params={"external_id": ext}))["projects"]
 

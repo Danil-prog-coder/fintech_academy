@@ -1,4 +1,4 @@
-import { Check, KeyRound, Plus, Trash2, UserPlus } from 'lucide-react';
+import { Check, KeyRound, LogIn, Plus, Trash2, UserPlus } from 'lucide-react';
 import { useState } from 'react';
 
 import {
@@ -7,10 +7,12 @@ import {
   useDeleteMemberMutation,
   useGetMembersQuery,
   useGetProjectsQuery,
+  useJoinProjectMutation,
   usePanelLinkMutation,
   usePutMemberMutation,
   useSelectProjectMutation,
   type CreatedProject,
+  type JoinedProject,
   type Role,
 } from '@/entities/project';
 import { getErrorMessage } from '@/shared/api';
@@ -42,14 +44,76 @@ const OneTimeSecrets = ({ created }: { created: CreatedProject }) => (
       <code className={styles.code}>{created.project_code}</code>
     </p>
     <p>
-      Задайте пароль для сайта администратора по ссылке (действует 72 часа):{' '}
+      С этим кодом в проект входят админы — передавайте его только им. Документацию загружают на
+      сайте администратора: откройте ссылку (действует 72 часа), войдите или зарегистрируйтесь там —
+      проект добавится к вашему аккаунту:{' '}
       <a href={created.owner_panel_setup_url} target="_blank" rel="noreferrer noopener">
         {created.owner_panel_setup_url}
       </a>
     </p>
-    <p>На сайт администратора входят по логину, паролю и коду проекта.</p>
   </Notice>
 );
+
+const JoinProject = () => {
+  const [code, setCode] = useState('');
+  const [join, { isLoading, error }] = useJoinProjectMutation();
+  const [joined, setJoined] = useState<JoinedProject | null>(null);
+  return (
+    <section className={styles.card} aria-label="Войти в проект по коду">
+      <h2 className={styles.subtitle}>Войти в проект как админ</h2>
+      <p className={styles.hint}>
+        Код проекта даёт владелец — например, если проект создан на сайте администратора.
+      </p>
+      <form
+        className={styles.row}
+        onSubmit={(event) => {
+          event.preventDefault();
+          void join({ project_code: code.trim() })
+            .unwrap()
+            .then((res) => {
+              setJoined(res);
+              setCode('');
+            })
+            .catch(() => undefined);
+        }}
+      >
+        <TextField
+          label="Код проекта"
+          placeholder="Код проекта"
+          autoComplete="off"
+          spellCheck={false}
+          value={code}
+          onChange={setCode}
+          maxLength={64}
+        />
+        <Button
+          type="submit"
+          variant="secondary"
+          icon={<LogIn size={16} />}
+          disabled={isLoading || !code.trim()}
+        >
+          Войти
+        </Button>
+      </form>
+      {error ? <Notice tone="danger">{getErrorMessage(error)}</Notice> : null}
+      {joined ? (
+        <Notice tone="success" title={`Вы в проекте «${joined.project.name}»`}>
+          Ваш статус — {roleLabel[joined.project.role]}. Проект стал текущим: «Спросить у ИИ» и
+          «Ответить с ИИ» ищут в его документации.
+          {joined.panel_setup_url ? (
+            <>
+              {' '}
+              Для сайта администратора откройте ссылку:{' '}
+              <a href={joined.panel_setup_url} target="_blank" rel="noreferrer noopener">
+                {joined.panel_setup_url}
+              </a>
+            </>
+          ) : null}
+        </Notice>
+      ) : null}
+    </section>
+  );
+};
 
 const CreateProject = () => {
   const [name, setName] = useState('');
@@ -265,6 +329,7 @@ export const ProjectsPage = () => {
         ) : null}
         {current ? <Members projectId={current.id} myRole={current.role} /> : null}
         <CreateProject />
+        <JoinProject />
       </main>
     </div>
   );

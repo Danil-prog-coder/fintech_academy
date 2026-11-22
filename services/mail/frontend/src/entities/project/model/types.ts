@@ -14,9 +14,16 @@ export interface ProjectsResponse {
 
 export interface CreatedProject {
   project: Project;
-  /** Код проекта показывается один раз: с ним, логином и паролем входят на сайт администратора. */
+  /** Код проекта показывается один раз: с ним в проект входят админы (здесь или на сайте администратора). */
   project_code: string;
+  /** Ссылка, по которой доступ владельца привязывается к аккаунту сайта администратора. */
   owner_panel_setup_url: string;
+}
+
+export interface JoinedProject {
+  project: Project;
+  /** Ссылка для сайта администратора — если доступ ещё не привязан к аккаунту сайта. */
+  panel_setup_url?: string;
 }
 
 export interface Member {

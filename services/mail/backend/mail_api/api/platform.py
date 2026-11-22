@@ -87,6 +87,19 @@ async def create_project(body: ProjectCreate, user: User = Depends(current_user)
     return res  # project, project_code (shown once), owner_panel_setup_url
 
 
+class ProjectJoin(BaseModel):
+    project_code: str = Field(min_length=1, max_length=64, description="код проекта: его даёт владелец")
+
+
+@router.post("/platform/projects/join")
+async def join_project(body: ProjectJoin, user: User = Depends(current_user), session: AsyncSession = Depends(get_session),
+                       p: PlatformClient = Depends(platform), _: None = per_user("projects", 10)) -> dict:
+    """«Войти как админ»: с кодом проекта пользователь становится админом (проект мог быть создан на сайте платформы)."""
+    res = await p.join_project(external_id(user.id), body.project_code.strip(), user.email, user.email)
+    await _set_current(session, user, res["project"]["id"])
+    return res  # project, member, panel_setup_url — ссылка, чтобы привязать доступ к аккаунту сайта администратора
+
+
 @router.post("/platform/projects/{project_id}/select")
 async def select_project(project_id: str, user: User = Depends(current_user), session: AsyncSession = Depends(get_session),
                          p: PlatformClient = Depends(platform)) -> dict:

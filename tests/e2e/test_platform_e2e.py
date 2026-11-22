@@ -200,16 +200,19 @@ async def test_whole_platform(platform):
     m, a = platform.mail, platform.admin
     owner, colleague = await _register(m, "owner@corp.example.com"), await _register(m, "colleague@corp.example.com")
 
-    # 1. A project is created from the mail; the owner gets the project code and a password link for the site
+    # 1. A project is created from the mail; the owner gets the project code and a link for the site, registers there
+    #    and the project is attached to his site account
     r = await m.post("/platform/projects", headers=owner, json={"name": "Отдел кадров", "login": "hr-owner"})
     assert r.status_code == 201, r.text
     created = r.json()
     pid, code = created["project"]["id"], created["project_code"]
     token = created["owner_panel_setup_url"].split("token=")[1]
-    assert (await a.post("/panel/api/auth/setup", json={"token": token, "password": "owner-password-42"})).status_code == 200
-    r = await a.post("/panel/api/auth/login", json={"login": "hr-owner", "password": "owner-password-42", "project_code": code})
-    assert r.status_code == 200 and r.json()["role"] == "owner"
     panel = {"X-Requested-With": "panel"}
+    assert (await a.get("/panel/api/auth/invite", params={"token": token})).json()["login_hint"] == "hr-owner"
+    r = await a.post("/panel/api/auth/register", headers=panel, json={"login": "hr-owner", "password": "owner-password-42"})
+    assert r.status_code == 201 and r.json()["project"] is None
+    r = await a.post("/panel/api/auth/claim", headers=panel, json={"token": token})
+    assert r.status_code == 200 and r.json()["role"] == "owner" and r.json()["project"]["id"] == pid
 
     # 2. The owner uploads documentation on the site; the RAG indexes it; the integration learns about it
     r = await a.post("/panel/api/documents", headers=panel, data={"section": "general"},
@@ -242,11 +245,21 @@ async def test_whole_platform(platform):
     r = await m.post("/mail/ask", headers=colleague, json={"draft": "Коллеги, кто согласует отпуск?"})
     assert r.status_code == 200 and r.json()["recommendation"] == "answer_found", r.text
 
+    # 5b. «Ответить с ИИ» on an incoming letter: a draft from the documentation, unknowns left to the user
+    r = await m.post("/mail/reply-draft", headers=colleague, json={
+        "letter": "Добрый день! Где оформляется заявление на отпуск? И сколько стоит парковка у офиса?",
+        "subject": "Вопросы", "author": "Иван <ivan@corp.example.com>"})
+    assert r.status_code == 200, r.text
+    reply = r.json()
+    assert "кадровом портале" in reply["draft"] and "[1]" not in reply["draft"], reply
+    assert reply["todo"] == ["И сколько стоит парковка у офиса?"] and "[уточнить:" in reply["draft"]
+
     # 6. A question the documentation does not cover goes to the owner and admins
     r = await m.post("/chat/ask", headers=colleague, json={"message": "Сколько стоит парковка у офиса?"})
     assert r.json()["action"] == "offer_operator" and r.json()["question_id"]
+    # (the letter's question from step 5b is there too: a gap in the documentation either way)
     pending = (await a.get("/panel/api/questions")).json()["questions"]
-    assert [q["text"] for q in pending] == ["Сколько стоит парковка у офиса?"]
+    assert [q["text"].split("\n")[0] for q in pending] == ["Сколько стоит парковка у офиса?", "И сколько стоит парковка у офиса?"]
     r = await a.post(f"/panel/api/questions/{pending[0]['id']}/answer", headers=panel,
                      json={"text": "Парковка для сотрудников бесплатная, пропуск выдаёт охрана.", "save_to_kb": True})
     assert r.status_code == 200 and r.json()["saved_to_kb"] is True
@@ -283,7 +296,20 @@ async def test_whole_platform(platform):
     stats = (await a.get("/panel/api/stats")).json()
     assert stats["questions"] >= 5 and stats["escalations"]["open"] == 1 and stats["unique_users"] == 1
 
-    # 12. Every event went to the integration's feed in order
+    # 12. A project created on the site: its owner registers there; a mail user joins it as an admin with the code
+    #     and gives a colleague access from the mail
+    async with httpx.AsyncClient(transport=a._transport, base_url=str(a.base_url)) as site:
+        r = await site.post("/panel/api/auth/register", headers=panel, json={"login": "site-owner", "password": "site-password-42"})
+        assert r.status_code == 201, r.text
+        r = await site.post("/panel/api/projects", headers=panel, json={"name": "Бухгалтерия"})
+        assert r.status_code == 201 and r.json()["role"] == "owner", r.text
+        site_pid, site_code = r.json()["project"]["id"], r.json()["project_code"]
+    r = await m.post("/platform/projects/join", headers=stranger, json={"project_code": site_code})
+    assert r.status_code == 200 and r.json()["project"] == {**r.json()["project"], "id": site_pid, "role": "admin"}, r.text
+    r = await m.put(f"/platform/projects/{site_pid}/members", headers=stranger, json={"email": "colleague@corp.example.com", "role": "user"})
+    assert r.status_code == 200, r.text
+
+    # 13. Every event went to the integration's feed in order
     async with admin_db.sessionmaker()() as s:
         feed = await admin_events.poll(s, 1, 0, 100)
     types = [e["type"] for e in feed]

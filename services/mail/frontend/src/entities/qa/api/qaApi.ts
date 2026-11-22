@@ -6,6 +6,8 @@ import {
   type FeedbackRequest,
   type MailAskRequest,
   type MailAskResponse,
+  type ReplyDraftRequest,
+  type ReplyDraftResponse,
 } from '../model/types';
 
 export const qaApi = baseApi.injectEndpoints({
@@ -18,6 +20,9 @@ export const qaApi = baseApi.injectEndpoints({
     }),
     askAboutDraft: build.mutation<MailAskResponse, MailAskRequest>({
       query: (body) => ({ url: '/mail/ask', method: 'POST', body }),
+    }),
+    replyDraft: build.mutation<ReplyDraftResponse, ReplyDraftRequest>({
+      query: (body) => ({ url: '/mail/reply-draft', method: 'POST', body }),
     }),
     sendFeedback: build.mutation<{ ok: boolean; question_id?: number }, FeedbackRequest>({
       query: (body) => ({ url: '/chat/feedback', method: 'POST', body }),
@@ -35,6 +40,7 @@ export const {
   useAskMutation,
   useResetChatMutation,
   useAskAboutDraftMutation,
+  useReplyDraftMutation,
   useSendFeedbackMutation,
   useContactSupportMutation,
   useGetPopularQuery,

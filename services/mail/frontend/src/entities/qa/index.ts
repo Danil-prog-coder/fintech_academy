@@ -3,6 +3,7 @@ export {
   useAskMutation,
   useContactSupportMutation,
   useGetPopularQuery,
+  useReplyDraftMutation,
   useResetChatMutation,
   useSendFeedbackMutation,
 } from './api/qaApi';
@@ -15,6 +16,7 @@ export type {
   MailAskResponse,
   QuestionResult,
   Recommendation,
+  ReplyDraftResponse,
   Source,
   ThreadMessage,
 } from './model/types';

@@ -1,5 +1,7 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 
+import { type ReplyDraftResponse } from '@/entities/qa';
+
 /** Начальное содержимое окна написания письма (сериализуемое; файлы живут в самом окне). */
 export interface ComposeInit {
   to: string;
@@ -15,6 +17,8 @@ export interface ComposeInit {
   replaces: { folder: string; uid: number } | null;
   /** Переписка для «Спросить у ИИ»: письма, на которые отвечаем. */
   thread: { author: string | null; text: string; sentAt: string | null }[];
+  /** Черновик «Ответить с ИИ», уже вставленный в начало текста письма (с источниками и пометками). */
+  ai: ReplyDraftResponse | null;
 }
 
 interface ComposeState {
@@ -36,6 +40,7 @@ export const emptyCompose: ComposeInit = {
   answered: null,
   replaces: null,
   thread: [],
+  ai: null,
 };
 
 export const composeSlice = createSlice({
