@@ -7,7 +7,12 @@
 #   mail  — демо-интеграция: почтовый клиент со своими пользователями, работает с платформой
 #           через /v1 как любой внешний сервис. Наружу — порт ${MAIL_PORT:-3000}.
 #
-# Запуск: заполнить services/*/.env по .env.example и выполнить  docker compose up -d --build
+#   caddy — HTTPS на сервере (профиль https): сам выпускает и продлевает сертификаты Let's Encrypt.
+#
+# Локально:   python3 scripts/setup_env.py && docker compose up -d --build
+# На сервере: python3 scripts/setup_env.py --domain platform.example.com --mail-domain mail.example.com
+#             (включает профиль https в .env и пишет deploy/Caddyfile), затем  docker compose up -d --build
+# Сайты публикуются только на 127.0.0.1: снаружи к ним ходят через caddy. Сервер без домена — PUBLISH_IP=0.0.0.0 в .env.
 
 name: platform
 
@@ -16,7 +21,7 @@ services:
   mail-web:
     build: ./services/mail/frontend
     restart: unless-stopped
-    ports: ["${MAIL_PORT:-3000}:80"]
+    ports: ["${PUBLISH_IP:-127.0.0.1}:${MAIL_PORT:-3000}:80"]
     depends_on:
       mail-api: {condition: service_healthy}
     networks: [mail_net]
@@ -53,7 +58,7 @@ services:
   admin-web:
     build: ./services/admin/frontend
     restart: unless-stopped
-    ports: ["${ADMIN_PORT:-3001}:80"]
+    ports: ["${PUBLISH_IP:-127.0.0.1}:${ADMIN_PORT:-3001}:80"]
     depends_on:
       admin: {condition: service_healthy}
     networks: [platform_public]
@@ -145,6 +150,19 @@ services:
       retries: 20
     networks: [platform_internal]
 
+  # ------------------------------------------------------------------ caddy (HTTPS, только на сервере)
+  caddy:
+    image: caddy:2.11.7-alpine
+    profiles: [https]
+    restart: unless-stopped
+    ports: ["80:80", "443:443", "443:443/udp"]
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data      # сертификаты: без тома Let's Encrypt быстро упрётся в лимит выдачи
+      - caddy_config:/config
+    depends_on: [admin-web, mail-web]
+    networks: [platform_public, mail_net]
+
 networks:
   mail_net: {}
   platform_public: {}
@@ -158,3 +176,5 @@ volumes:
   llm_var: {}
   qdrant: {}
   redis: {}
+  caddy_data: {}
+  caddy_config: {}

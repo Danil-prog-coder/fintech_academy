@@ -2,10 +2,13 @@
 
 SERVICES := services/llm services/admin/backend services/mail/backend
 
-.PHONY: test test-llm test-admin test-mail test-e2e check-web lint env
+.PHONY: test test-llm test-admin test-mail test-e2e check-web lint env deploy
 
 env:
 	python3 scripts/setup_env.py
+
+deploy:
+	./scripts/deploy.sh
 
 services/llm/.venv:
 	cd services/llm && uv venv -q -p 3.12 .venv && uv pip install -q -p .venv -e '.[dev]'

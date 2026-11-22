@@ -1,0 +1,28 @@
+#cloud-config
+# Подготовка чистого Ubuntu 22.04/24.04 под платформу (Timeweb Cloud: «Cloud-init» при создании сервера).
+# Только система: Docker, swap, файрвол, пользователь. Код и секреты сюда не кладите — данные cloud-init
+# видны в панели хостинга и с самого сервера. Перед вставкой замените SSH-ключ на свой.
+package_update: true
+package_upgrade: true
+packages: [ca-certificates, curl, git, ufw, fail2ban]
+
+users:
+  - default
+  - name: deploy
+    groups: [sudo]
+    shell: /bin/bash
+    sudo: "ALL=(ALL) NOPASSWD:ALL"
+    ssh_authorized_keys:
+      - ssh-ed25519 AAAA_ЗАМЕНИТЕ_НА_СВОЙ_КЛЮЧ you@laptop
+
+runcmd:
+  - curl -fsSL https://get.docker.com | sh
+  - usermod -aG docker deploy
+  # swap 4 ГБ: сборка двух фронтендов и python-образов не упадёт по памяти
+  - [sh, -c, "if [ ! -f /swapfile ]; then fallocate -l 4G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile && echo '/swapfile none swap sw 0 0' >> /etc/fstab; fi"]
+  - sysctl -w vm.swappiness=10 && echo 'vm.swappiness=10' > /etc/sysctl.d/99-swappiness.conf
+  # логи контейнеров не съедают диск
+  - [sh, -c, "printf '{\"log-driver\":\"json-file\",\"log-opts\":{\"max-size\":\"20m\",\"max-file\":\"3\"}}\\n' > /etc/docker/daemon.json && systemctl restart docker"]
+  # наружу только SSH и веб (Caddy). Порты 3000/3001 и так слушают только 127.0.0.1
+  - ufw allow OpenSSH && ufw allow 80/tcp && ufw allow 443/tcp && ufw allow 443/udp && ufw --force enable
+  - systemctl enable --now fail2ban

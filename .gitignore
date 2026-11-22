@@ -14,3 +14,4 @@ services/llm/data/kb/
 backup.tar.gz
 *.egg-info/
 node_modules
+deploy/Caddyfile

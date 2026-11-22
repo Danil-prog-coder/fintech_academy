@@ -38,7 +38,9 @@ RAG-ядро перенесено из проекта Innopolis (корпора�
 5. Ответа нет → вопрос у админов на сайте → их ответ приходит пользователю событием и (по желанию) сохраняется в базу.
 6. «Позовите человека» → обращение в ТП → переписка на сайте или в Jira → ответы приходят пользователю.
 
-## Быстрый старт (Docker, VPS)
+## Быстрый старт (Docker)
+
+Локально:
 
 ```bash
 python3 scripts/setup_env.py            # services/*/.env с согласованными секретами
@@ -53,9 +55,17 @@ docker compose up -d --build
 - почта (демо): http://localhost:3000 — регистрация, «Проекты» → создать проект;
 - сайт администратора и открытый API: http://localhost:3001 (Swagger — `/docs`).
 
-На сервере с доменами: `python3 scripts/setup_env.py --domain platform.example.com --mail-domain mail.example.com`,
-перед `admin-web` и `mail-web` — HTTPS (Caddy / nginx с Let's Encrypt). Порты меняются переменными
-`ADMIN_PORT`, `MAIL_PORT`. Наружу публикуются только два nginx; `llm`, базы, Qdrant и Redis портов не открывают.
+На сервере с доменом HTTPS поднимается сам (сервис `caddy`, сертификаты Let's Encrypt):
+
+```bash
+python3 scripts/setup_env.py --domain platform.example.com --mail-domain mail.example.com
+```
+```bash
+./scripts/deploy.sh                     # проверки, сборка, запуск; повторный запуск = обновление
+```
+
+Пошагово, с требованиями к серверу, DNS и cloud-init для Timeweb — [docs/DEPLOY.md](docs/DEPLOY.md).
+Наружу открыты только 80/443 (Caddy); сайты слушают 127.0.0.1, а `llm`, базы, Qdrant и Redis портов не открывают.
 
 Новый ключ для своей интеграции:
 ```bash
