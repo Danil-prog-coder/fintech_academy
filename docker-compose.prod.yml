@@ -1,0 +1,31 @@
+# Продакшен-надстройка: наружу открыт только Caddy (80/443) с HTTPS,
+# сайты admin-web и mail-web доступны только через него.
+# Подключается автоматически через COMPOSE_FILE в .env (см. deploy/.env.example).
+
+services:
+  admin-web:
+    ports: !reset []
+
+  mail-web:
+    ports: !reset []
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      ADMIN_DOMAIN: ${ADMIN_DOMAIN:?задайте ADMIN_DOMAIN в .env}
+      MAIL_DOMAIN: ${MAIL_DOMAIN:?задайте MAIL_DOMAIN в .env}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data      # сертификаты: не удалять
+      - caddy_config:/config
+    depends_on: [admin-web, mail-web]
+    networks: [platform_public, mail_net]
+
+volumes:
+  caddy_data: {}
+  caddy_config: {}

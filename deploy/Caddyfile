@@ -1,0 +1,13 @@
+# HTTPS перед сайтами платформы: Caddy сам выпускает и продлевает сертификаты Let's Encrypt.
+# Домены приходят из .env в корне репозитория (ADMIN_DOMAIN, MAIL_DOMAIN).
+# Потоковые ответы (SSE) Caddy отдаёт без буферизации, лимита на размер тела запроса нет.
+
+{$ADMIN_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy admin-web:80
+}
+
+{$MAIL_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy mail-web:80
+}
