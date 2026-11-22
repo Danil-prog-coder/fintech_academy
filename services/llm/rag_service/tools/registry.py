@@ -10,7 +10,7 @@ import json
 import re
 from typing import Any
 
-from ..config import get_settings
+from ..core.config import get_settings
 from ..retrieval.kb import get_kb, known_names, match_document, section_chunks
 from ..retrieval.search import HybridRetriever
 from .bo_link import parse_bo_link

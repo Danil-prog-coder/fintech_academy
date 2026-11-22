@@ -1,8 +1,8 @@
 import httpx
 import pytest
 
-from rag_service import confluence_control as control
-from rag_service.config import get_settings
+from rag_service.core.config import get_settings
+from rag_service.sources import confluence_control as control
 
 
 @pytest.fixture

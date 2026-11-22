@@ -7,10 +7,10 @@ from collections.abc import AsyncIterator
 from fastapi import Depends, Header, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..core import Core
-from ..db import sessionmaker
-from ..errors import ApiError, forbidden, unauthorized
-from ..models import Integration, Role
+from ..core.errors import ApiError, forbidden, unauthorized
+from ..core.runtime import Core
+from ..db.models import Integration, Role
+from ..db.session import sessionmaker
 from ..services import accounts, integrations
 from ..services.accounts import SESSION_COOKIE, PanelUser, SiteSession
 

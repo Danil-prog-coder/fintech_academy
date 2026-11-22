@@ -17,14 +17,14 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..core import Core
-from ..errors import ApiError, bad_request, conflict, forbidden, not_found
-from ..models import Escalation, JiraSettings, Member, Section
-from ..rag_client import RagError, RagUnavailable
-from ..security import new_token, verify_secret
+from ..core.errors import ApiError, bad_request, conflict, forbidden, not_found
+from ..core.runtime import Core
+from ..core.security import new_token, verify_secret
+from ..db.models import Escalation, JiraSettings, Member, Section
 from ..services import accounts, docs, escalations, projects, questions, stats
 from ..services.accounts import SESSION_COOKIE, PanelUser, SiteSession
 from ..services.jira import JiraError
+from ..services.rag import RagError, RagUnavailable
 from .deps import client_ip, get_core, get_db, managers, owner_only, panel_user, site_session, support_staff
 
 router = APIRouter(prefix="/panel/api", tags=["panel"])

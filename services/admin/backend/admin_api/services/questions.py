@@ -13,12 +13,12 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..core import Core
-from ..db import utc_now
-from ..errors import bad_request, conflict, forbidden, not_found
-from ..models import Member, Project, Question, QuestionStatus, Role
-from ..rag_client import RagError, RagUnavailable
+from ..core.errors import bad_request, conflict, forbidden, not_found
+from ..core.runtime import Core
+from ..db.models import Member, Project, Question, QuestionStatus, Role
+from ..db.session import utc_now
 from . import events
+from .rag import RagError, RagUnavailable
 
 log = logging.getLogger(__name__)
 

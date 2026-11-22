@@ -7,7 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import rag_service.api.app as app_mod
-import rag_service.voice as voice
+import rag_service.api.voice as voice
 from rag_service.llm import LLMUnavailable
 
 OGG = base64.b64encode(b"OggS" + b"\x00" * 200).decode()
@@ -82,7 +82,7 @@ def test_no_model_is_503(monkeypatch, client):
 def test_token_required(monkeypatch, client):
     monkeypatch.setenv("AUTH_DISABLED", "false")
     monkeypatch.setenv("SERVICE_API_TOKEN", "svc")
-    from rag_service.config import get_settings
+    from rag_service.core.config import get_settings
 
     get_settings.cache_clear()
     try:

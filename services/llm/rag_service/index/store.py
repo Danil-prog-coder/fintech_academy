@@ -16,7 +16,7 @@ from pathlib import Path
 from qdrant_client import QdrantClient
 from qdrant_client import models as qm
 
-from ..config import get_settings
+from ..core.config import get_settings
 
 log = logging.getLogger(__name__)
 DENSE = "dense"

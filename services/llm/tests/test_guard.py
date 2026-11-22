@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from rag_service import guard
-from rag_service.config import get_settings
+from rag_service.agent import input_guard as guard
+from rag_service.core.config import get_settings
 
 HERE = Path(__file__).resolve().parent / "data"
 

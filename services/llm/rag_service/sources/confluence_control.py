@@ -2,8 +2,8 @@
 
 import httpx
 
-from . import confluence_source
-from .config import get_settings
+from ..core.config import get_settings
+from . import confluence as confluence_source
 
 
 class ControlUnavailable(RuntimeError):

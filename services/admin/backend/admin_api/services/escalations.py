@@ -19,10 +19,9 @@ from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..core import Core
-from ..db import utc_now
-from ..errors import ApiError, bad_request, conflict, forbidden, not_found
-from ..models import (
+from ..core.errors import ApiError, bad_request, conflict, forbidden, not_found
+from ..core.runtime import Core
+from ..db.models import (
     Escalation,
     EscalationMessage,
     EscalationStatus,
@@ -33,6 +32,7 @@ from ..models import (
     Role,
     Turn,
 )
+from ..db.session import utc_now
 from . import events
 from .jira import JiraAmbiguous, JiraClient, JiraConfig, JiraError, JiraEvent
 

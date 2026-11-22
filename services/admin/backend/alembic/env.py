@@ -6,8 +6,8 @@ import os
 from alembic import context
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from admin_api import models  # noqa: F401  (registers the tables)
-from admin_api.db import Base
+from admin_api.db import models  # noqa: F401  (registers the tables)
+from admin_api.db.session import Base
 
 target_metadata = Base.metadata
 

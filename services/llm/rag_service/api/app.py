@@ -31,8 +31,8 @@ from __future__ import annotations
 import asyncio
 import contextvars
 import json
-import re
 import logging
+import re
 import shutil
 import threading
 import time
@@ -46,27 +46,31 @@ from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
-from .. import __version__, confluence_control, confluence_source, db, doclinks, jobs
+from .. import __version__
 from ..agent.memory import get_memory
 from ..analytics import report as an
 from ..analytics import store as an_store
 from ..analytics.classify import get_classifier
 from ..analytics.questions import get_questions
 from ..cache import get_cache
-from ..config import get_settings
+from ..core import db, jobs
+from ..core.config import get_settings
+from ..core.hours import get_schedule
+from ..core.project_paths import upload_dir, write_atomic
 from ..faq import get_faq
-from ..git_source import sources as git
-from ..hours import get_schedule
 from ..index import store
+from ..ingest.knowledge import save_knowledge
 from ..ingest.pipeline import SUPPORTED
-from ..knowledge import save_knowledge
 from ..llm import LLMUnavailable
-from ..project_paths import upload_dir, write_atomic
 from ..retrieval.access import DEFAULT_SECTION, denied, doc_section
 from ..retrieval.kb import get_kb, invalidate
 from ..service import ask_events, ask_sync
-from ..voice import AudioRejected, transcribe
+from ..sources import confluence as confluence_source
+from ..sources import confluence_control
+from ..sources.git import sources as git
+from . import doclinks
 from . import questions as questions_api
+from .voice import AudioRejected, transcribe
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("rag_service.api")

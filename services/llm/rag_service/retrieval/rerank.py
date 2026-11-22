@@ -15,7 +15,7 @@ import re
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FutureTimeout
 
-from ..config import get_settings
+from ..core.config import get_settings
 from ..llm import LLMUnavailable, chat
 
 log = logging.getLogger(__name__)

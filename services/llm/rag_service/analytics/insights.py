@@ -19,8 +19,8 @@ from zoneinfo import ZoneInfo
 import numpy as np
 import sqlalchemy as sa
 
-from .. import db
-from ..config import get_settings
+from ..core import db
+from ..core.config import get_settings
 
 C = db.question_clusters
 OFF_TOPIC = "Вне тематики"

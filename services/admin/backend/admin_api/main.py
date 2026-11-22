@@ -17,12 +17,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
-from . import __version__, db, errors
+from . import __version__
 from .api import panel, public, v1
-from .config import Settings, get_settings
-from .core import Core, build_core
-from .rag_client import RagError, RagUnavailable
+from .core import errors
+from .core.config import Settings, get_settings
+from .core.runtime import Core, build_core
+from .db import session as db
 from .services import docs, escalations, events, integrations
+from .services.rag import RagError, RagUnavailable
 
 log = logging.getLogger("admin_api")
 

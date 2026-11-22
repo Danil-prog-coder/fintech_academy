@@ -148,8 +148,8 @@ def build(project_id: str | None = None, days: float = 30, rows: list[dict] | No
     Computed on demand from rag_questions + the turn log; embeddings come from the disk cache after the first call."""
     import sqlalchemy as sa
 
-    from .. import db
-    from ..config import get_settings
+    from ..core import db
+    from ..core.config import get_settings
     from .embedder import embed, main_model, thresholds
     from .questions import QuestionClusters, _who, clusterable, entity_key
 

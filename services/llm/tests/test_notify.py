@@ -1,7 +1,7 @@
 """FR-ADM-05: what changed between generations + the optional docs.updated push."""
 
-import rag_service.notify as notify
-from rag_service.config import get_settings
+import rag_service.ingest.notify as notify
+from rag_service.core.config import get_settings
 
 B = {"documents": [{"doc_id": "a", "title": "A", "content_hash": "1", "outline": ["1 Вход", "2 Меню"]},
                    {"doc_id": "gone", "title": "Старый", "content_hash": "x"}]}

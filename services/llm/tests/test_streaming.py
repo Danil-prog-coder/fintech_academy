@@ -175,7 +175,7 @@ def test_failed_later_paragraph_resets_what_was_shown(fake):
 
 
 def test_streaming_can_be_switched_off(fake, monkeypatch):
-    from rag_service.config import get_settings
+    from rag_service.core.config import get_settings
 
     monkeypatch.setattr(get_settings(), "agent_streaming", False)
     fake += [_resp(_call("search_docs", {"query": "график"})), _resp(_call("final_answer", GOOD))]
@@ -186,7 +186,7 @@ def test_streaming_can_be_switched_off(fake, monkeypatch):
 
 def test_usage_meter_collects_tokens_per_model():
     from rag_service.analytics.query_logger import cost_of
-    from rag_service.config import get_settings
+    from rag_service.core.config import get_settings
     from rag_service.llm import _record_usage
 
     with usage_scope() as meter:

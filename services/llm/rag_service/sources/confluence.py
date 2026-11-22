@@ -34,8 +34,8 @@ from pathlib import Path
 
 from filelock import FileLock
 
-from .config import get_settings
-from .ingest.util import slugify
+from ..core.config import get_settings
+from ..ingest.util import slugify
 
 log = logging.getLogger(__name__)
 _lock = threading.RLock()

@@ -5,12 +5,12 @@ import pytest
 from fastapi.testclient import TestClient
 
 import rag_service.api.app as api
-from rag_service.config import get_settings
+from rag_service.core.config import get_settings
+from rag_service.core.project_paths import upload_dir
 from rag_service.index import store
 from rag_service.ingest import pipeline
 from rag_service.retrieval import access, search
 from rag_service.retrieval.kb import get_kb
-from rag_service.project_paths import upload_dir
 from tests.fakes import FakeEmbedder
 
 PID = "sections-p1"

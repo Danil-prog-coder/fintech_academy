@@ -7,8 +7,8 @@ import threading
 
 from rapidfuzz import fuzz, process  # MIT
 
+from ..core.product import get_product
 from ..index import store
-from ..product import get_product
 from .access import base_denied, request_denied
 
 _cache: dict[str, dict] = {}

@@ -68,7 +68,7 @@ def test_docx_structure_tables_callouts_images_and_noise(docx_file, tmp_path):
 
 
 def test_docx_goes_through_chunking_with_image_fragments(docx_file, tmp_path, monkeypatch):
-    from rag_service.config import get_settings
+    from rag_service.core.config import get_settings
 
     monkeypatch.setattr(get_settings(), "state_dir", str(tmp_path / "var"))
     chunks, images, report = build_chunks([docx_file], describe=False)

@@ -8,10 +8,10 @@ import pytest
 
 os.environ.setdefault("SECRET_KEY", secrets.token_urlsafe(48))
 
-from admin_api import db  # noqa: E402
-from admin_api.config import Settings  # noqa: E402
-from admin_api.core import build_core  # noqa: E402
-from admin_api.db import Base  # noqa: E402
+from admin_api.core.config import Settings  # noqa: E402
+from admin_api.core.runtime import build_core  # noqa: E402
+from admin_api.db import session as db  # noqa: E402
+from admin_api.db.session import Base  # noqa: E402
 from admin_api.main import create_app  # noqa: E402
 from admin_api.services import integrations  # noqa: E402
 

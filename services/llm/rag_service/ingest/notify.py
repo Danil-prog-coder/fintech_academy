@@ -11,7 +11,7 @@ import logging
 import threading
 from datetime import datetime, timezone
 
-from .config import get_settings
+from ..core.config import get_settings
 
 log = logging.getLogger(__name__)
 

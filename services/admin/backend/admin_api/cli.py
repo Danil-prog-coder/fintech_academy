@@ -13,9 +13,9 @@ import sys
 
 from sqlalchemy import select
 
-from . import db
-from .config import get_settings
-from .models import Integration
+from .core.config import get_settings
+from .db import session as db
+from .db.models import Integration
 from .services import integrations
 
 

@@ -11,7 +11,7 @@ import time
 
 import sqlalchemy as sa
 
-from .. import db
+from ..core import db
 from .query_logger import pseudonymize
 
 T, F = db.turns, db.feedback

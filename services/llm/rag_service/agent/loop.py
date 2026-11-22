@@ -17,16 +17,16 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from typing import Any, Callable, Iterator
 
-from .. import doclinks
 from ..analytics.query_logger import QueryLogger, cost_of
-from ..config import get_settings
-from ..guard import sanitize_untrusted
-from ..hours import get_schedule
+from ..api import doclinks
+from ..core.config import get_settings
+from ..core.hours import get_schedule
+from ..core.product import get_product
 from ..llm import LLMUnavailable, chat, usage_cost, usage_scope
-from ..product import get_product
 from ..retrieval.kb import get_kb
 from ..tools.registry import FINAL_TOOLS, SCHEMAS, Tools, parse_args, status_for
 from . import guardrails as gr
+from .input_guard import sanitize_untrusted
 from .memory import get_memory
 from .prompts import get_prompts
 from .router import after_search as route_after_search
@@ -564,7 +564,7 @@ class AgentLoop:
 
 
 def _domain_question(text: str) -> bool:
-    from ..guard import domain_question
+    from .input_guard import domain_question
 
     return domain_question(text or "")
 

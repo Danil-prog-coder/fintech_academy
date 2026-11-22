@@ -31,7 +31,7 @@ from typing import Iterator
 
 import numpy as np
 
-from .config import get_settings
+from ..core.config import get_settings
 
 log = logging.getLogger(__name__)
 
@@ -136,7 +136,7 @@ def domain_question(text: str) -> bool:
     if DOMAIN.search(text):
         return True
     try:
-        from .analytics.classify import rule_classify
+        from ..analytics.classify import rule_classify
 
         return rule_classify(text)["topic"] != "Вне тематики"
     except Exception:  # noqa: BLE001
@@ -209,7 +209,7 @@ class _Exemplars:
 
     def _build(self, model: str) -> None:
         try:
-            from .analytics.embedder import embed
+            from ..analytics.embedder import embed
 
             data = json.loads(EXEMPLARS_FILE.read_text(encoding="utf-8"))
             mats = []
@@ -235,7 +235,7 @@ _pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="guard")
 
 
 def _vector(text: str):
-    from .analytics.embedder import embed
+    from ..analytics.embedder import embed
 
     s = get_settings()
     fut = _pool.submit(embed, [text[:2000]])
@@ -248,7 +248,7 @@ def _vector(text: str):
 
 def embeddings(text: str, vec=None, model: str | None = None, standalone: bool = True) -> tuple[Verdict, dict]:
     """(verdict, scores). Doubtful cases come back unblocked with flags ["doubt:<category>"] for the LLM layer."""
-    from .analytics.embedder import main_model
+    from ..analytics.embedder import main_model
 
     s = get_settings()
     if vec is None:
@@ -269,8 +269,8 @@ def embeddings(text: str, vec=None, model: str | None = None, standalone: bool =
         if margin >= s.guard_attack_margin_doubt:
             return Verdict(False, flags=["doubt:injection"], score=round(margin, 4)), scores
     if model == main_model() and s.guard_offtopic_conf and standalone:  # a follow-up («а в выходные?») has no context here
-        from .analytics.qmodel import get_model
-        from .analytics.questions import classify
+        from ..analytics.qmodel import get_model
+        from ..analytics.questions import classify
 
         rec = {"text": text, "action": "answer", "sources": ["x"], "standalone": True}
         intent = classify(rec)["intent"]
@@ -324,7 +324,7 @@ def llm_verdict(text: str, hint: str, model: str | None = None, prompt: str | No
     s = get_settings()
     if not s.guard_llm_enabled:
         return Verdict(flags=[f"doubt:{hint}", "llm_off"])
-    from .llm import chat, json_content
+    from ..llm import chat, json_content
 
     model = model or s.guard_llm_model or s.classify_model or s.summary_model
     tpl = LLM_PROMPTS.get(prompt or s.guard_llm_prompt, LLM_PROMPT)
@@ -415,7 +415,7 @@ def standalone(session_id: str, project_id: str, message: str) -> bool:
     """Off-topic is judged only on a self-contained message: the first of a session, or one that does not read as a
     follow-up («а в выходные?», short replies)."""
     try:
-        from .agent.memory import get_memory
+        from .memory import get_memory
 
         if get_memory().load(session_id, project_id)["turns"] == 0:
             return True
@@ -444,7 +444,7 @@ def guard_turn(session_id: str, project_id: str, message: str, has_images: bool 
     log.info("guard blocked a turn: %s", v.as_dict())
     if not (v.category == "flood" and "x" in (v.rule or "")):  # a repeated flood is not logged again and again
         try:
-            from .analytics.query_logger import QueryLogger
+            from ..analytics.query_logger import QueryLogger
 
             QueryLogger().log_turn(project_id, session_id, rid, (message or "")[:2000], res)
         except Exception as e:  # noqa: BLE001

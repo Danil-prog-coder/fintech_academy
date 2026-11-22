@@ -8,9 +8,9 @@ import sqlalchemy as sa
 from fastapi.testclient import TestClient
 
 import rag_service.api.app as app_mod
-from rag_service import db, jobs
 from rag_service.analytics.query_logger import QueryLogger
-from rag_service.config import get_settings
+from rag_service.core import db, jobs
+from rag_service.core.config import get_settings
 
 
 def fake_events(session_id, project_id, message, images=None, now=None, debug=False, allowed_sections=None):
@@ -265,7 +265,7 @@ def test_closure_jobs_are_recorded(monkeypatch):
 
 
 def test_knowledge_from_operator_answer(monkeypatch, tmp_path, client):
-    import rag_service.knowledge as kn
+    import rag_service.ingest.knowledge as kn
     from rag_service.ingest.md_parser import parse_markdown
 
     s = get_settings()

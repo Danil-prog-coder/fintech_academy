@@ -8,7 +8,7 @@ import rag_service.agent.loop as loop_mod
 import rag_service.llm as llm
 from rag_service.agent.memory import get_memory
 from rag_service.agent.router import after_search, initial_tier
-from rag_service.config import get_settings
+from rag_service.core.config import get_settings
 from rag_service.tools.registry import Tools
 from tests.test_agent_loop import CHUNK, IN_HOURS, call, resp
 

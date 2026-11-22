@@ -9,13 +9,13 @@ from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..core import Core
-from ..errors import ApiError, not_found, unauthorized
-from ..models import JiraSettings, Project
-from ..rag_client import RagUnavailable
-from ..security import PUBLIC_ID_RE
+from ..core.errors import ApiError, not_found, unauthorized
+from ..core.runtime import Core
+from ..core.security import PUBLIC_ID_RE
+from ..db.models import JiraSettings, Project
 from ..services import escalations
 from ..services.jira import parse_webhook, verify_signature
+from ..services.rag import RagUnavailable
 from .deps import get_core, get_db
 
 log = logging.getLogger(__name__)

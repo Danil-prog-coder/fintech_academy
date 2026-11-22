@@ -15,8 +15,8 @@ import time
 
 import sqlalchemy as sa
 
-from .. import db
-from ..config import get_settings
+from ..core import db
+from ..core.config import get_settings
 from .questions import get_questions
 
 log = logging.getLogger(__name__)

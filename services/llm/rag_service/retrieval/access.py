@@ -13,8 +13,8 @@ import contextvars
 import hashlib
 from contextlib import contextmanager
 
-from ..confluence_source import denied_documents
 from ..index import store
+from ..sources.confluence import denied_documents
 
 DEFAULT_SECTION = "general"
 _REQUEST_DENIED: contextvars.ContextVar[frozenset[str]] = contextvars.ContextVar("rag_request_denied", default=frozenset())

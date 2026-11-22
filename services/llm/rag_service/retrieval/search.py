@@ -8,7 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from qdrant_client import models as qm
 
-from ..config import get_settings
+from ..core.config import get_settings
 from ..index import store
 from ..index.embeddings import get_embedder
 from ..index.sparse import query_sparse

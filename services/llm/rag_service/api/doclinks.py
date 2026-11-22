@@ -18,7 +18,7 @@ import re
 from pathlib import Path
 from urllib.parse import quote
 
-from .config import Settings
+from ..core.config import Settings
 
 
 def _key(s: Settings) -> bytes:
@@ -47,7 +47,7 @@ def original_file(s: Settings, doc: dict | None, project_id: str | None = None) 
     """The uploaded original in KB_DIR (not for Git documents — they link to the repository)."""
     if not doc or doc.get("git") or not doc.get("file"):
         return None
-    from .project_paths import upload_dir
+    from ..core.project_paths import upload_dir
 
     if doc.get("original_file"):
         original = Path(doc["original_file"]).resolve()

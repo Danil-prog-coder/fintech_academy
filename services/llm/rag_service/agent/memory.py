@@ -12,7 +12,7 @@ import threading
 import time
 from typing import Any
 
-from ..config import get_settings
+from ..core.config import get_settings
 
 log = logging.getLogger(__name__)
 

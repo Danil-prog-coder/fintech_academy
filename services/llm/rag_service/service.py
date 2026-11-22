@@ -15,15 +15,15 @@ import uuid
 from datetime import datetime
 from typing import Iterator
 
+from .agent.input_guard import guard_turn
 from .agent.loop import apply_hours_policy, format_answer, run_turn_stream
 from .agent.memory import get_memory
 from .analytics.query_logger import QueryLogger
 from .analytics.questions import get_questions
 from .cache import get_cache, is_cacheable_question, is_self_contained
-from .config import get_settings
+from .core.config import get_settings
+from .core.hours import get_schedule
 from .faq import get_faq
-from .guard import guard_turn
-from .hours import get_schedule
 from .index import store
 from .retrieval import access
 

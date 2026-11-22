@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 from dataclasses import asdict, dataclass, field
 
-from ..product import section
+from ..core.product import section
 
 
 def reference() -> dict:

@@ -12,10 +12,10 @@ from datetime import timedelta
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..core import Core
-from ..db import utc_now
-from ..models import Escalation, EscalationStatus, Member, Project, Question, QuestionStatus, Turn
-from ..rag_client import RagError, RagUnavailable
+from ..core.runtime import Core
+from ..db.models import Escalation, EscalationStatus, Member, Project, Question, QuestionStatus, Turn
+from ..db.session import utc_now
+from .rag import RagError, RagUnavailable
 
 
 def _days(since, days: int) -> list[str]:

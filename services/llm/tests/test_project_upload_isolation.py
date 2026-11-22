@@ -6,10 +6,10 @@ from fastapi.testclient import TestClient
 from PIL import Image
 
 import rag_service.api.app as api
-from rag_service.config import get_settings
+from rag_service.core.config import get_settings
+from rag_service.core.project_paths import upload_dir
 from rag_service.index import store
 from rag_service.ingest import pipeline
-from rag_service.project_paths import upload_dir
 from tests.fakes import FakeEmbedder
 
 

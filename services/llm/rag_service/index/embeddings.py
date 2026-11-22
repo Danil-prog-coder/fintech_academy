@@ -23,7 +23,7 @@ from pathlib import Path
 
 from openai import OpenAI
 
-from ..config import get_settings
+from ..core.config import get_settings
 
 log = logging.getLogger(__name__)
 

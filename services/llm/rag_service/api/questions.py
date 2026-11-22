@@ -23,7 +23,7 @@ from pydantic import BaseModel
 
 from ..analytics.questions import get_questions
 from ..cache import get_cache
-from ..config import get_settings
+from ..core.config import get_settings
 from ..index import store
 
 router = APIRouter()

@@ -18,8 +18,8 @@ import time
 
 import sqlalchemy as sa
 
-from .. import db
-from ..config import get_settings
+from ..core import db
+from ..core.config import get_settings
 from ..llm import LLMUnavailable, chat, json_content
 
 log = logging.getLogger(__name__)

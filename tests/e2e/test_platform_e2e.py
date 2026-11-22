@@ -42,7 +42,7 @@ os.environ.update({
 
 import rag_service.agent.loop as rag_loop  # noqa: E402
 import rag_service.api.app as rag_app  # noqa: E402
-from rag_service.config import get_settings as rag_settings  # noqa: E402
+from rag_service.core.config import get_settings as rag_settings  # noqa: E402
 from rag_service.index import embeddings as rag_embeddings  # noqa: E402
 from rag_service.ingest import pipeline as rag_pipeline  # noqa: E402
 from rag_service.retrieval import search as rag_search  # noqa: E402
@@ -50,10 +50,10 @@ from rag_service.retrieval import search as rag_search  # noqa: E402
 rag_settings()  # cached before the other services change DATABASE_URL
 
 # ---------------------------------------------------------------- admin and mail
-from admin_api import db as admin_db  # noqa: E402
-from admin_api.config import Settings as AdminSettings  # noqa: E402
-from admin_api.core import build_core  # noqa: E402
-from admin_api.db import Base as AdminBase  # noqa: E402
+from admin_api.db import session as admin_db  # noqa: E402
+from admin_api.core.config import Settings as AdminSettings  # noqa: E402
+from admin_api.core.runtime import build_core  # noqa: E402
+from admin_api.db.session import Base as AdminBase  # noqa: E402
 from admin_api.main import create_app as create_admin  # noqa: E402
 from admin_api.services import docs as admin_docs  # noqa: E402
 from admin_api.services import events as admin_events  # noqa: E402
@@ -180,7 +180,7 @@ async def platform(monkeypatch):
 
 
 async def _wait_rag_jobs(project_rag_id: str, timeout: float = 60) -> None:
-    from rag_service import jobs as rag_jobs
+    from rag_service.core import jobs as rag_jobs
     t0 = time.time()
     while time.time() - t0 < timeout:
         running = [j for j in rag_jobs.recent(20, project_rag_id) if j["status"] in ("queued", "running")]

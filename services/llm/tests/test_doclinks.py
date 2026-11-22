@@ -3,8 +3,8 @@
 from fastapi.testclient import TestClient
 
 import rag_service.api.app as app_mod
-from rag_service import doclinks
-from rag_service.config import get_settings
+from rag_service.api import doclinks
+from rag_service.core.config import get_settings
 
 DOC = {"doc_id": "bp", "title": "БП Командировка", "file": "bp.pdf", "source_type": "upload"}
 CHUNKS = [

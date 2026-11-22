@@ -16,7 +16,7 @@ from pathlib import Path
 
 from PIL import Image
 
-from ..config import get_settings
+from ..core.config import get_settings
 from ..llm import LLMUnavailable, chat
 from .chunker import ImageInfo
 from .util import sha256_file

@@ -23,11 +23,11 @@ from pathlib import Path, PurePosixPath
 
 from qdrant_client import models as qm
 
-from ..config import get_settings
+from ..core.config import get_settings
+from ..core.project_paths import upload_dir, write_atomic
 from ..index import store
 from ..index.embeddings import get_embedder
 from ..index.sparse import doc_sparse, tokenize
-from ..project_paths import upload_dir, write_atomic
 from ..retrieval.access import DEFAULT_SECTION
 from .blocks import ParsedDocument
 from .chunker import Chunk, ImageInfo, _image_context, chunk_document, split_sections
@@ -262,7 +262,7 @@ def build_chunks(files: list[Path], *, describe: bool = True, workers: int | Non
             if meta:  # FR-GIT-02: link to the file pinned to the commit, anchored at the nearest heading
                 c.meta.update({"repo": meta.get("repo"), "git_path": meta.get("path"), "commit": meta.get("commit")})
                 if meta.get("url_template") and c.section_path and f.suffix.lower() in (".md", ".markdown"):
-                    from ..git_source.providers import heading_anchor
+                    from ..sources.git.providers import heading_anchor
 
                     c.meta["source_url"] = meta["url_template"].replace("{anchor}", heading_anchor(c.section_path[-1], meta.get("provider", "github")))
                 else:
@@ -367,10 +367,10 @@ def ingest(paths: list[str | Path], project_id: str | None = None, *, describe: 
     files = collect_files(paths)
     extra = list(extra_files or [])
     if include_git:
-        from ..git_source.sources import local_files
+        from ..sources.git.sources import local_files
 
         extra += local_files(project_id)
-    from ..confluence_source import local_files as confluence_files
+    from ..sources.confluence import local_files as confluence_files
 
     extra += confluence_files(project_id)  # pages and attachments received from the Confluence adapter
     meta = {str(p): m for p, m in extra}

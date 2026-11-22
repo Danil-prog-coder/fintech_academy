@@ -6,9 +6,9 @@ from fastapi.testclient import TestClient
 
 import rag_service.analytics.answers as am
 import rag_service.analytics.questions as qm
-from rag_service import db
 from rag_service.analytics.store import write_turns
-from rag_service.config import get_settings
+from rag_service.core import db
+from rag_service.core.config import get_settings
 from tests.fakes import fake_vec
 from tests.test_questions import rec
 

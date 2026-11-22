@@ -17,7 +17,7 @@ import rag_service.ingest.vision as vision
 from rag_service.agent.memory import get_memory
 from rag_service.analytics import classify
 from rag_service.analytics import report as an
-from rag_service.config import get_settings
+from rag_service.core.config import get_settings
 from rag_service.ingest.crops import crop_red_frame, red_frame_bbox
 from rag_service.tools.registry import Tools
 from tests.test_agent_loop import CHUNK, IN_HOURS, call, fake, resp  # noqa: F401  (fixture)
@@ -187,7 +187,7 @@ def test_github_webhook_signature_required(monkeypatch, tmp_path):
     import hashlib
     import hmac
 
-    from rag_service.git_source import sources
+    from rag_service.sources.git import sources
 
     monkeypatch.setattr(get_settings(), "state_dir", str(tmp_path))
     src = sources.add("default", "github", "org/hookrepo", "main")

@@ -28,7 +28,7 @@ from pathlib import Path
 import numpy as np
 
 from ..cache import normalize_question
-from ..config import get_settings
+from ..core.config import get_settings
 from ..index import store
 from ..index.embeddings import get_embedder
 from ..llm import LLMUnavailable, chat, json_content

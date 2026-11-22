@@ -41,8 +41,8 @@ from collections import Counter
 import numpy as np
 import sqlalchemy as sa
 
-from .. import db
-from ..config import get_settings
+from ..core import db
+from ..core.config import get_settings
 
 log = logging.getLogger(__name__)
 Q, C = db.questions, db.question_clusters

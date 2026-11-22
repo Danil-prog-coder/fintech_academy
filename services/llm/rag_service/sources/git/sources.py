@@ -27,8 +27,8 @@ import time
 import uuid
 from pathlib import Path, PurePosixPath
 
-from ..config import get_settings
-from ..ingest.util import slugify
+from ...core.config import get_settings
+from ...ingest.util import slugify
 from .providers import Change, GitError, make_provider
 
 log = logging.getLogger(__name__)
@@ -259,9 +259,9 @@ def plan_changes(src: dict, tree: dict[str, int], changes: list[Change] | None) 
 
 
 def sync(source_id: str, *, full: bool = False, describe: bool = True) -> dict:
-    from ..faq import get_faq
-    from ..index import store
-    from ..ingest.pipeline import ingest, ingest_incremental
+    from ...faq import get_faq
+    from ...index import store
+    from ...ingest.pipeline import ingest, ingest_incremental
 
     src = get(source_id)
     if not src:
@@ -329,7 +329,7 @@ def sync(source_id: str, *, full: bool = False, describe: bool = True) -> dict:
         rep.update(status="ok", generation=ir.get("generation"), indexing={k: ir.get(k) for k in ("counts", "incremental", "elapsed_s")},
                    errors=ir.get("errors") or [])
         try:
-            from .. import notify
+            from ...ingest import notify
 
             rep["changes"] = notify.manifest_diff(before, store.active_manifest(project_id))
             rep["notified"] = notify.push_docs_updated(project_id, ir.get("generation"), f"git:{src.get('repo')}", rep["changes"])
@@ -361,8 +361,8 @@ def _record(source_id: str, rep: dict, changes: dict | None) -> dict:
 
 def remove(source_id: str) -> dict:
     """Disconnect: drop its documents from the knowledge base (new generation) and the local copy."""
-    from ..index import store
-    from ..ingest.pipeline import ingest_incremental
+    from ...index import store
+    from ...ingest.pipeline import ingest_incremental
 
     src = get(source_id)
     if not src:

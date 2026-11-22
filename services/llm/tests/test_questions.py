@@ -7,10 +7,10 @@ import pytest
 from fastapi.testclient import TestClient
 
 import rag_service.analytics.questions as qm
-from rag_service import db
 from rag_service.analytics.query_logger import QueryLogger, pseudonymize
 from rag_service.cache import ExactCache
-from rag_service.config import get_settings
+from rag_service.core import db
+from rag_service.core.config import get_settings
 from tests.fakes import fake_vec
 
 SRC = ["БП Командировка → 4 Согласование → 4.1"]
@@ -280,7 +280,7 @@ def test_second_pass_pairs_mutual_neighbours():
 
 def test_explicit_urgency_marker_overrides_model():
     """eval/clustering/exp_tone.py: «срочно / горит» → urgent even when the model says normal; off by the setting."""
-    from rag_service.config import get_settings
+    from rag_service.core.config import get_settings
 
     class Model:
         def predict(self, vec, raw, intent, topics):

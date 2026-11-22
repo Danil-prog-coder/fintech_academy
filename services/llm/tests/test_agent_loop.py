@@ -208,7 +208,7 @@ def test_clarification_before_any_search_is_retried(fake):
 
 def test_own_tool_output_is_not_sanitized(monkeypatch):
     """15.11: «Система: БАРС-Офис (bo.bars.group)» from parse_bo_link was hidden by the injection filter as «system:»."""
-    from rag_service.config import get_settings
+    from rag_service.core.config import get_settings
 
     monkeypatch.setattr(get_settings(), "guard_enabled", True)
     line = "Система: БАРС-Офис (bo.bars.group)"

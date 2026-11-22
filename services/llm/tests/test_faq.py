@@ -5,7 +5,7 @@ import time
 import pytest
 
 import rag_service.faq.service as svc
-from rag_service.config import get_settings
+from rag_service.core.config import get_settings
 from rag_service.faq.entities import extract_entities, same_entities, title_vocabulary
 from tests.fakes import FakeEmbedder
 

@@ -8,10 +8,10 @@ import uuid
 import pytest
 from docx import Document
 
-from rag_service import confluence_source
-from rag_service.config import get_settings
+from rag_service.core.config import get_settings
 from rag_service.index import store
 from rag_service.ingest import pipeline
+from rag_service.sources import confluence as confluence_source
 from tests.fakes import FakeEmbedder
 
 

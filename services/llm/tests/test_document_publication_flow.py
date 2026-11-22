@@ -10,7 +10,7 @@ from docx import Document
 from fastapi.testclient import TestClient
 
 import rag_service.api.app as api
-from rag_service.config import get_settings
+from rag_service.core.config import get_settings
 from rag_service.index import store
 from rag_service.ingest import pipeline
 from tests.fakes import FakeEmbedder
@@ -86,7 +86,7 @@ def test_new_docx_and_confluence_reach_search_only_after_publication(monkeypatch
 
 
 def test_missing_file_is_an_error_but_confirmed_last_source_removal_publishes_empty(monkeypatch, tmp_path):
-    from rag_service import confluence_source
+    from rag_service.sources import confluence as confluence_source
     settings = get_settings()
     pid = "last-source-" + uuid.uuid4().hex[:8]
     for key, value in {"state_dir": str(tmp_path / "state"), "kb_dir": str(tmp_path / "uploads"),

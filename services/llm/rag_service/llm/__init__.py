@@ -14,7 +14,7 @@ from typing import Any, Callable, Iterator
 
 from openai import APIConnectionError, APITimeoutError, InternalServerError, OpenAI, RateLimitError
 
-from ..config import get_settings
+from ..core.config import get_settings
 
 log = logging.getLogger(__name__)
 

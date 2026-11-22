@@ -5,7 +5,7 @@ import time
 from types import SimpleNamespace
 
 import rag_service.retrieval.rerank as rerank
-from rag_service.config import get_settings
+from rag_service.core.config import get_settings
 from rag_service.llm import LLMUnavailable
 
 CANDS = [{"text": f"фрагмент {i}", "chunk_type": "text", "section_path_str": f"Док → {i}"} for i in range(3)]

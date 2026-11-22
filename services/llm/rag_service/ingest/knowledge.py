@@ -14,10 +14,10 @@ from pathlib import Path
 
 import sqlalchemy as sa
 
-from . import db, jobs
-from .config import get_settings
-from .ingest.util import slugify
-from .project_paths import upload_dir
+from ..core import db, jobs
+from ..core.config import get_settings
+from ..core.project_paths import upload_dir
+from .util import slugify
 
 
 def _one_line(text: str) -> str:

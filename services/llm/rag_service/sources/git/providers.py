@@ -14,7 +14,7 @@ from urllib.parse import quote
 
 import httpx  # BSD
 
-from ..config import get_settings
+from ...core.config import get_settings
 
 
 @dataclass

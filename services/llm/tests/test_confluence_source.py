@@ -9,8 +9,8 @@ import sys
 
 import pytest
 
-from rag_service import confluence_source as cs
-from rag_service.config import get_settings
+from rag_service.core.config import get_settings
+from rag_service.sources import confluence as cs
 
 PAGE_HTML = (
     "<h2>Фильтры</h2><p>Пример: <code>status in A|B|C</code> и <code>sum != 0</code>.</p>"
@@ -269,7 +269,7 @@ def test_malformed_document_is_rejected_before_mutation(source, change):
 def test_separate_receiver_processes_do_not_lose_each_others_sources(tmp_path):
     script = '''
 import sys
-from rag_service.confluence_source import receive_batch
+from rag_service.sources.confluence import receive_batch
 source = sys.argv[1]
 for seq in range(1, 7):
     receive_batch(source, {"source_id": source, "batch_id": f"{source}:{seq}",

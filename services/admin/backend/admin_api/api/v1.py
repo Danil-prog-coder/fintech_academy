@@ -16,12 +16,12 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..core import Core
-from ..db import sessionmaker
-from ..errors import ApiError, bad_request, not_found
-from ..models import Escalation, Integration, Member, Project, Section, Turn
-from ..rag_client import RagError, RagUnavailable
+from ..core.errors import ApiError, bad_request, not_found
+from ..core.runtime import Core
+from ..db.models import Escalation, Integration, Member, Project, Section, Turn
+from ..db.session import sessionmaker
 from ..services import asking, escalations, events, integrations, projects, questions
+from ..services.rag import RagError, RagUnavailable
 from .deps import get_core, get_db, integration
 
 router = APIRouter(prefix="/v1", tags=["integration API"])

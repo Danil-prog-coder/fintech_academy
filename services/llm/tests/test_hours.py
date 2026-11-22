@@ -2,7 +2,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from rag_service.agent.loop import SUPPORT_BUTTON, apply_hours_policy
-from rag_service.hours import ShiftSchedule
+from rag_service.core.hours import ShiftSchedule
 
 MSK = ZoneInfo("Europe/Moscow")
 S = ShiftSchedule("mon-fri 09:00-18:00", "Europe/Moscow")

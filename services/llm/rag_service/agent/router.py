@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import re
 
-from ..config import get_settings
+from ..core.config import get_settings
 
 _HEAVY_PATTERNS = [
     (r"поэтапн|пошагов|по шагам|шаг[аиов]*\b|как (?:настро|созда|добав|оформ|заполн|подат|выполн|сдела|запуст|исправ|удал)|инструкц|процедур|алгоритм", "procedure"),

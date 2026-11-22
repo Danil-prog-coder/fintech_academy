@@ -11,7 +11,7 @@ from openai import APITimeoutError
 
 import rag_service.llm as llm
 import rag_service.retrieval.rerank as rerank
-from rag_service.config import get_settings
+from rag_service.core.config import get_settings
 
 OK = SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content="ok"))])
 

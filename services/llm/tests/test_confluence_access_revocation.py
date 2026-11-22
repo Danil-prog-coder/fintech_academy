@@ -9,15 +9,15 @@ from fastapi.testclient import TestClient
 from PIL import Image
 
 import rag_service.api.app as api
-from rag_service import confluence_source
 from rag_service.agent.memory import SessionMemory
 from rag_service.cache import ExactCache
-from rag_service.config import get_settings
+from rag_service.core.config import get_settings
 from rag_service.faq.service import FaqService
 from rag_service.index import store
 from rag_service.ingest import pipeline
 from rag_service.retrieval import kb, search
 from rag_service.retrieval.access import answer_allowed
+from rag_service.sources import confluence as confluence_source
 from tests.fakes import FakeEmbedder
 
 

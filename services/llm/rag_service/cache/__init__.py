@@ -22,7 +22,7 @@ import threading
 import time
 from typing import Protocol
 
-from ..config import get_settings
+from ..core.config import get_settings
 
 log = logging.getLogger(__name__)
 
@@ -236,7 +236,7 @@ _ANAPHORA = frozenset("""он она оно они его ее их ему ей 
 def is_self_contained(message: str) -> bool:
     """A message in the middle of a session that does not lean on the dialog: >= 4 words, not a follow-up
     («а в выходные?», guard._FOLLOWUP), no anaphoric pronouns. Such a question may use the answer cache too."""
-    from ..guard import _FOLLOWUP
+    from ..agent.input_guard import _FOLLOWUP
 
     words = re.findall(r"\w+", (message or "").lower().replace("ё", "е"))
     return len(words) >= 4 and not _FOLLOWUP.search(message or "") and not _ANAPHORA.intersection(words)

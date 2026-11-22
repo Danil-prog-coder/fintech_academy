@@ -9,7 +9,7 @@ from PIL import Image
 
 import rag_service.api.app as app_mod
 import rag_service.ingest.vision as vision
-from rag_service.config import get_settings
+from rag_service.core.config import get_settings
 from rag_service.llm import LLMUnavailable
 
 

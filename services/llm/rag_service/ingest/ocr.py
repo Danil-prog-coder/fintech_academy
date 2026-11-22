@@ -18,7 +18,7 @@ import logging
 import threading
 from pathlib import Path
 
-from ..config import get_settings
+from ..core.config import get_settings
 
 log = logging.getLogger(__name__)
 OCR_VERSION = "ocr-ppocrv5-eslav-1"  # part of the cache key: a new model or post-processing → new texts

@@ -8,11 +8,11 @@ from datetime import timedelta
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..core import Core
-from ..db import utc_now
-from ..models import IndexJob, Project
-from ..rag_client import RagError, RagUnavailable
+from ..core.runtime import Core
+from ..db.models import IndexJob, Project
+from ..db.session import utc_now
 from . import events
+from .rag import RagError, RagUnavailable
 
 log = logging.getLogger(__name__)
 JOB_TIMEOUT = timedelta(hours=6)

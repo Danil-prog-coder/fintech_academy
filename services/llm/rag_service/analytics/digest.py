@@ -25,8 +25,8 @@ from zoneinfo import ZoneInfo
 
 import sqlalchemy as sa
 
-from .. import db
-from ..config import get_settings
+from ..core import db
+from ..core.config import get_settings
 from .questions import _who
 
 log = logging.getLogger(__name__)

@@ -136,7 +136,7 @@ def test_fallback_embedder_and_per_model_thresholds(qc, monkeypatch):  # noqa: F
     """Main embedder down → analytics uses the local one (faked here) with its own thresholds; centroids of another
     embedder are never compared; the rebuild reports the change of embedder."""
     from rag_service.analytics import embedder as emb
-    from rag_service.config import get_settings
+    from rag_service.core.config import get_settings
     from tests.test_questions import fake_vec
 
     s = get_settings()
@@ -165,7 +165,7 @@ def test_slow_main_embedder_trips_the_breaker(monkeypatch):
     import time as _t
 
     from rag_service.analytics import embedder as emb
-    from rag_service.config import get_settings
+    from rag_service.core.config import get_settings
     from tests.test_questions import fake_vec
 
     s = get_settings()

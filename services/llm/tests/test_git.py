@@ -7,10 +7,10 @@ import uuid
 import pytest
 
 import rag_service.ingest.pipeline as pipeline
-from rag_service.config import get_settings
-from rag_service.git_source import sources
-from rag_service.git_source.providers import Change, GitHubProvider, GitLabProvider, RepoFile, heading_anchor
+from rag_service.core.config import get_settings
 from rag_service.index import store
+from rag_service.sources.git import sources
+from rag_service.sources.git.providers import Change, GitHubProvider, GitLabProvider, RepoFile, heading_anchor
 from tests.fakes import FakeEmbedder
 
 
@@ -112,7 +112,7 @@ def test_sync_full_then_incremental_then_remove(monkeypatch, tmp_path):
     repo = FakeRepo()
     monkeypatch.setattr(sources, "provider_for", lambda src: repo)
     pid = "git-" + uuid.uuid4().hex[:6]
-    from rag_service.project_paths import upload_dir
+    from rag_service.core.project_paths import upload_dir
 
     local = upload_dir(s, pid)
     local.mkdir(parents=True)

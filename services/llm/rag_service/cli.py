@@ -7,7 +7,7 @@ import json
 import logging
 import sys
 
-from .config import get_settings
+from .core.config import get_settings
 
 
 def main(argv: list[str] | None = None) -> int:

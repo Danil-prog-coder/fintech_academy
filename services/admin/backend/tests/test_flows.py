@@ -1,7 +1,7 @@
 import json
 
-from admin_api import db
-from admin_api.security import verify_webhook
+from admin_api.core.security import verify_webhook
+from admin_api.db import session as db
 from admin_api.services import docs, escalations, events
 from tests.conftest import create_project, panel_login, set_password
 
@@ -165,7 +165,7 @@ async def test_jira_failures_are_retried_and_then_given_up(env):
     key = r.json()["key"]
     from datetime import timedelta
 
-    from admin_api.models import Escalation
+    from admin_api.db.models import Escalation
     for _ in range(env.settings.jira_max_attempts):
         async with db.sessionmaker()() as s:
             await escalations.jira_pass(env.core, s)
@@ -196,7 +196,7 @@ async def test_webhooks_are_signed_retried_and_skipped_without_url(env):
     async with db.sessionmaker()() as s:
         assert await events.deliver_pending(env.core, s) == 0
     assert len(env.out.requests) == 1
-    from admin_api.models import Event
+    from admin_api.db.models import Event
     async with db.sessionmaker()() as s:  # make the retry due now
         ev = (await s.scalars(db.select(Event).where(Event.delivery_status == "pending"))).one()
         ev.next_attempt_at = ev.created_at

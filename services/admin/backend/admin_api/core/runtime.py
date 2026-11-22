@@ -7,8 +7,8 @@ from dataclasses import dataclass, field
 
 import httpx
 
+from ..services.rag import RagClient
 from .config import Settings
-from .rag_client import RagClient
 from .ratelimit import RateLimiter
 from .security import SecretBox
 

@@ -24,7 +24,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from .db import Base, UTCDateTime, utc_now
+from .session import Base, UTCDateTime, utc_now
 
 # BigInteger primary keys on Postgres, plain INTEGER on SQLite (autoincrement works only there)
 BigId = BigInteger().with_variant(Integer, "sqlite")

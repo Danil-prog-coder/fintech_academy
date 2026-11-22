@@ -17,11 +17,11 @@ from typing import Callable
 
 import sqlalchemy as sa
 
+from ..index import store
+from ..ingest.pipeline import collect_files, ingest
+from ..retrieval.kb import invalidate
 from . import db
 from .config import get_settings
-from .index import store
-from .ingest.pipeline import collect_files, ingest
-from .retrieval.kb import invalidate
 
 log = logging.getLogger(__name__)
 _ingest_lock = threading.Lock()
@@ -48,7 +48,7 @@ def ingest_and_refresh(paths: list[str], project_id: str, describe: bool = True)
     rep = ingest(paths, project_id, describe=describe)
     if rep.get("status") == "ok" and get_settings().faq_enabled:
         try:
-            from .faq import get_faq
+            from ..faq import get_faq
 
             rep["faq"] = get_faq().on_generation_change(project_id)
         except Exception as e:  # noqa: BLE001

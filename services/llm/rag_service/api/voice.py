@@ -12,8 +12,8 @@ import base64
 import logging
 import time
 
-from .config import get_settings
-from .llm import LLMUnavailable, chat
+from ..core.config import get_settings
+from ..llm import LLMUnavailable, chat
 
 log = logging.getLogger(__name__)
 

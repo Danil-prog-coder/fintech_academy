@@ -1,6 +1,6 @@
 """EMBEDDING_PROVIDER=openrouter: OpenRouter key / URL by default and the same cache keys as the direct OpenAI-compatible call."""
 
-from rag_service.config import get_settings
+from rag_service.core.config import get_settings
 from rag_service.index.embeddings import Embedder
 
 
