@@ -1,0 +1,48 @@
+.toggle {
+  display: inline-flex;
+  gap: var(--space-3);
+  align-items: center;
+  padding: 0;
+  background: none;
+  border: 0;
+}
+
+.toggle:disabled {
+  opacity: 0.5;
+}
+
+.track {
+  position: relative;
+  flex-shrink: 0;
+  width: 44px;
+  height: 24px;
+  background-color: var(--color-border-strong);
+  border-radius: var(--radius-full);
+  transition: background-color var(--transition-fast);
+}
+
+.thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  background-color: var(--color-surface);
+  border-radius: var(--radius-full);
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--transition-fast);
+}
+
+.checked {
+  background-color: var(--color-success);
+}
+
+.checked .thumb {
+  transform: translateX(20px);
+}
+
+.label {
+  font-size: var(--font-size-md);
+  color: var(--color-text);
+  white-space: nowrap;
+}

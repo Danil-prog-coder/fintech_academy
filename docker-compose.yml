@@ -1,73 +1,160 @@
-# Базовый compose — совместим с App Platform (Timeweb): без volumes, env_file и опубликованных
-# портов 80/443. Сайт — ПЕРВЫЙ сервис (платформа проксирует на домен только его).
+# Платформа «вопросы по документации» — три сервиса:
 #
-# Секреты и ключи задаются переменными окружения (в панели платформы или в shell):
-#   SECRET_KEY, ENCRYPTION_KEY, GIGACHAT_CREDENTIALS, DATABASE_URL и т.д. (список ниже).
-# Локально:  docker compose up --build   — подхватит docker-compose.override.yml
-#   (там же back-end/.env, том для БД и порт API). Подробнее — README.md.
+#   llm   — скрытый RAG-сервис (агент, гибридный поиск, кэши). Наружу не публикуется,
+#           ходит в него только admin по внутренней сети.
+#   admin — ядро платформы: открытый API /v1 для интеграций, сайт для владельцев, админов и ТП,
+#           эскалации и Jira. Наружу — через admin-web (nginx), порт ${ADMIN_PORT:-3001}.
+#   mail  — демо-интеграция: почтовый клиент со своими пользователями, работает с платформой
+#           через /v1 как любой внешний сервис. Наружу — порт ${MAIL_PORT:-3000}.
 #
-# БД: по умолчанию Postgres из этого файла БЕЗ тома — данные пропадут при пересоздании контейнера.
-# Для продакшена задайте DATABASE_URL на управляемую БД (расширение pgvector обязательно).
-x-backend-env: &backend-env
-  environment:
-    DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://resheno:resheno@postgres:5432/resheno}
-    SECRET_KEY: ${SECRET_KEY:-dev-secret-change-me-dev-secret-change-me}
-    ENCRYPTION_KEY: ${ENCRYPTION_KEY:-KdwktotoZM8Cjv6nemrset9fAdzGA7w0G-g_rUg9Bqo=}
-    GIGACHAT_CA_BUNDLE: ${GIGACHAT_CA_BUNDLE:-certs/russian_trusted_root_ca.crt}
-    # Без значения — переменная передаётся из окружения, если задана (иначе её берёт back-end/.env).
-    GIGACHAT_CREDENTIALS:
-    GIGACHAT_AUTH_KEY:  # алиас GIGACHAT_CREDENTIALS
-    GIGACHAT_SCOPE:
-    GIGACHAT_VERIFY_SSL:
-    API_KEY:  # ключ Cloud.ru для эмбеддингов (алиас CLOUDRU_API_KEY)
-    CLOUDRU_API_KEY:
-    EMBEDDINGS_PROVIDER:
-    LLM_PRIMARY:
-    LLM_FALLBACK:
-    QA_MODE:
-    YANDEX_API_KEY:
-    YANDEX_FOLDER_ID:
-    YANDEX_MODEL:
-    GITHUB_WEBHOOK_SECRET:
-    PUBLIC_BASE_URL:
+# Запуск: заполнить services/*/.env по .env.example и выполнить  docker compose up -d --build
+
+name: platform
 
 services:
-  frontend:
-    build: ./frontend
-    depends_on:
-      api: {condition: service_healthy}
-    ports: ["3000:80"]
+  # ------------------------------------------------------------------ mail (демо-интеграция)
+  mail-web:
+    build: ./services/mail/frontend
     restart: unless-stopped
-
-  api:
-    build: ./back-end
-    <<: *backend-env
+    ports: ["${MAIL_PORT:-3000}:80"]
     depends_on:
-      postgres: {condition: service_healthy}
-    command: sh -c "python -m scripts.migrate && uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*' --no-access-log"
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
-      interval: 10s
-      retries: 10
-      start_period: 20s
-    restart: unless-stopped
+      mail-api: {condition: service_healthy}
+    networks: [mail_net]
 
-  worker:
-    build: ./back-end
-    <<: *backend-env
-    depends_on:
-      api: {condition: service_healthy}  # api применяет миграции
-    command: python -m app.worker
+  mail-api:
+    build: ./services/mail/backend
     restart: unless-stopped
-
-  postgres:
-    image: pgvector/pgvector:pg16
+    env_file: ./services/mail/backend/.env
     environment:
-      POSTGRES_USER: resheno
-      POSTGRES_PASSWORD: resheno
-      POSTGRES_DB: resheno
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U resheno"]
-      interval: 5s
-      retries: 10
+      DATABASE_URL: postgresql+asyncpg://mail:${MAIL_DB_PASSWORD:-mail}@mail-db:5432/mail
+      PLATFORM_URL: http://admin:8000
+    depends_on:
+      mail-db: {condition: service_healthy}
+      admin: {condition: service_healthy}
+    # mail видит платформу только как внешний клиент: сеть с admin, но не с llm и не с их базами
+    networks: [mail_net, platform_public]
+
+  mail-db:
+    image: postgres:16-alpine
     restart: unless-stopped
+    environment:
+      POSTGRES_USER: mail
+      POSTGRES_PASSWORD: ${MAIL_DB_PASSWORD:-mail}
+      POSTGRES_DB: mail
+    volumes: [mail_db:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mail -d mail"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [mail_net]
+
+  # ------------------------------------------------------------------ admin (ядро платформы)
+  admin-web:
+    build: ./services/admin/frontend
+    restart: unless-stopped
+    ports: ["${ADMIN_PORT:-3001}:80"]
+    depends_on:
+      admin: {condition: service_healthy}
+    networks: [platform_public]
+
+  admin:
+    build: ./services/admin/backend
+    restart: unless-stopped
+    env_file: ./services/admin/backend/.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://admin:${ADMIN_DB_PASSWORD:-admin}@admin-db:5432/admin
+      REDIS_URL: redis://redis:6379/1
+      RAG_URL: http://llm:8080
+    depends_on:
+      admin-db: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      llm: {condition: service_started}
+    networks: [platform_public, platform_internal]
+
+  admin-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: ${ADMIN_DB_PASSWORD:-admin}
+      POSTGRES_DB: admin
+    volumes: [admin_db:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d admin"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [platform_internal]
+
+  # ------------------------------------------------------------------ llm (скрытый RAG)
+  llm:
+    build: ./services/llm
+    restart: unless-stopped
+    env_file: ./services/llm/.env
+    environment:
+      QDRANT_URL: http://qdrant:6333
+      REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: postgresql+pg8000://rag:${RAG_DB_PASSWORD:-rag}@llm-db:5432/rag
+      STATE_DIR: /app/var
+      KB_DIR: /app/var/uploads
+      VISION_CACHE_DIR: /app/data/vision_cache
+    volumes: [llm_var:/app/var]
+    depends_on:
+      qdrant: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      llm-db: {condition: service_healthy}
+    # только внутренняя сеть: из интернета и из mail сервис недоступен
+    networks: [platform_internal]
+
+  llm-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: rag
+      POSTGRES_PASSWORD: ${RAG_DB_PASSWORD:-rag}
+      POSTGRES_DB: rag
+    volumes: [llm_db:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rag -d rag"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [platform_internal]
+
+  qdrant:
+    image: qdrant/qdrant:v1.20.1
+    restart: unless-stopped
+    volumes: [qdrant:/qdrant/storage]
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/6333 && printf \"GET /readyz HTTP/1.0\\r\\n\\r\\n\" >&3 && grep -q 200 <&3'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [platform_internal]
+
+  redis:
+    image: redis:7.2-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes: [redis:/data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [platform_internal]
+
+networks:
+  mail_net: {}
+  platform_public: {}
+  platform_internal:
+    internal: false  # llm ходит к провайдерам моделей; внешний порт не публикуется ни у одного сервиса этой сети
+
+volumes:
+  mail_db: {}
+  admin_db: {}
+  llm_db: {}
+  llm_var: {}
+  qdrant: {}
+  redis: {}

@@ -1,0 +1,30 @@
+.chart {
+  display: flex;
+  gap: var(--space-1);
+  align-items: flex-end;
+  height: 180px;
+}
+
+.col {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-1);
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+  max-width: 56px;
+  height: 100%;
+}
+
+.bar {
+  width: 100%;
+  min-height: 2px;
+  background-color: var(--color-accent-hover);
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+
+.label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
