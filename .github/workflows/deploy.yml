@@ -1,0 +1,46 @@
+# Автодеплой: каждый push в main → по SSH на сервер → git pull → пересборка изменившихся контейнеров.
+# Секреты репозитория (Settings → Secrets and variables → Actions):
+#   DEPLOY_HOST     — IP сервера
+#   DEPLOY_USER     — пользователь на сервере (deploy)
+#   DEPLOY_SSH_KEY  — приватный ключ, публичная часть которого лежит в ~/.ssh/authorized_keys на сервере
+# На сервере репозиторий склонирован в ~/app, .env-файлы лежат там же (в git не попадают и не затираются).
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: SSH key
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key && chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -t ed25519 -H "$HOST" >> ~/.ssh/known_hosts
+
+      - name: Deploy
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -o BatchMode=yes "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          cd ~/app
+          git fetch --quiet origin main
+          git checkout --quiet main 2>/dev/null || git checkout --quiet -b main origin/main
+          git reset --hard --quiet origin/main
+          docker compose up -d --build --remove-orphans
+          docker image prune -f >/dev/null
+          docker compose ps
+          REMOTE
