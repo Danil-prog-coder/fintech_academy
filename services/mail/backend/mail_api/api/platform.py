@@ -7,9 +7,11 @@ projects and statuses and enforces who may change whom; this module only transla
 from __future__ import annotations
 
 import re
-from typing import Literal
+from base64 import b64encode
+from pathlib import PurePosixPath
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Depends, File, Form, Request, Response, UploadFile
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -161,6 +163,22 @@ class ChatAsk(BaseModel):
     message: str = Field(min_length=1, max_length=4000)
 
 
+CHAT_FILE_LIMIT = 5 * 1024 * 1024
+CHAT_IMAGE_TYPES = {
+    ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif", ".webp": "image/webp",
+}
+CHAT_DOCUMENT_TYPES = {".pdf", ".docx", ".txt", ".md", ".csv"}
+
+
+async def _chat_upload_data(file: UploadFile, error_code: str, label: str) -> str:
+    data = await file.read(CHAT_FILE_LIMIT + 1)
+    if len(data) > CHAT_FILE_LIMIT:
+        raise AppError(error_code, f"{label}: размер превышает 5 МБ.", 413)
+    if not data:
+        raise AppError(error_code, f"{label}: файл пуст.", 400)
+    return b64encode(data).decode("ascii")
+
+
 class Feedback(BaseModel):
     request_id: str = Field(max_length=64)
     value: Literal[1, -1]
@@ -171,6 +189,41 @@ async def chat_ask(body: ChatAsk, user: User = Depends(current_user), session: A
                    p: PlatformClient = Depends(platform), _: None = per_user("ask", 30)) -> dict:
     pid = await current_project(session, user, p)
     return {"project_id": pid, **await p.ask(pid, external_id(user.id), body.message, channel="mail-chat")}
+
+
+@router.post("/chat/ask/attachments")
+async def chat_ask_with_attachments(
+    files: Annotated[list[UploadFile], File()], message: Annotated[str, Form(max_length=4000)] = "",
+    user: User = Depends(current_user), session: AsyncSession = Depends(get_session),
+    p: PlatformClient = Depends(platform), _: None = per_user("ask", 30),
+) -> dict:
+    if not 1 <= len(files) <= 3:
+        raise AppError("bad_attachment", "Прикрепите от одного до трёх файлов.", 400)
+    pid = await current_project(session, user, p)
+    images, attachments = [], []
+    for file in files:
+        name = PurePosixPath((file.filename or "").replace("\\", "/")).name
+        suffix = PurePosixPath(name).suffix.lower()
+        if len(name) > 255 or (suffix not in CHAT_DOCUMENT_TYPES and suffix not in CHAT_IMAGE_TYPES):
+            raise AppError("bad_attachment", "Поддерживаются PDF, DOCX, TXT, MD, CSV, PNG, JPEG, GIF и WebP.", 400)
+        data = await _chat_upload_data(file, "bad_attachment", f'Файл «{name}»')
+        if suffix in CHAT_IMAGE_TYPES:
+            images.append({"mime": CHAT_IMAGE_TYPES[suffix], "data_base64": data})
+        else:
+            attachments.append({"name": name, "data_base64": data})
+    question = message.strip() or "Какие сведения из документации проекта относятся к приложенным файлам?"
+    answer = await p.ask(pid, external_id(user.id), question, channel="mail-chat", images=images, attachments=attachments)
+    return {"project_id": pid, **answer}
+
+
+@router.post("/chat/transcribe")
+async def chat_transcribe(
+    audio: Annotated[UploadFile, File()], user: User = Depends(current_user), session: AsyncSession = Depends(get_session),
+    p: PlatformClient = Depends(platform), _: None = per_user("transcribe", 10),
+) -> dict:
+    pid = await current_project(session, user, p)
+    data = await _chat_upload_data(audio, "bad_audio", "Голосовое сообщение")
+    return await p.transcribe(pid, external_id(user.id), data, audio.content_type or "application/octet-stream")
 
 
 @router.post("/chat/reset", status_code=204)

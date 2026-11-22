@@ -36,7 +36,7 @@ def split_deltas(body: str) -> list[str]:
 
 def ask_events(session_id: str, project_id: str | None, message: str, images: list[dict] | None = None,
                now: datetime | None = None, debug: bool = False,
-               allowed_sections: list[str] | None = None) -> Iterator[dict]:
+               allowed_sections: list[str] | None = None, *, attachment_context: str = "") -> Iterator[dict]:
     """`allowed_sections` — sections the asking member may see (None = all). It is applied to the whole turn
     through a context variable; callers run this generator inside one Context (api/app.py)."""
     s = get_settings()
@@ -51,7 +51,7 @@ def ask_events(session_id: str, project_id: str | None, message: str, images: li
     mem = get_memory()
     sess = mem.load(session_id, project_id)
     gen = store.active_generation(project_id)
-    cacheable = bool(s.answer_cache_enabled and gen and is_cacheable_question(
+    cacheable = bool(not attachment_context and s.answer_cache_enabled and gen and is_cacheable_question(
         message, bool(images), sess["turns"] == 0 or is_self_contained(message)))  # repeat mid-session → cache too
     if cacheable:
         hit = get_cache().lookup(project_id, gen, message, who=get_questions().person(session_id))
@@ -71,7 +71,8 @@ def ask_events(session_id: str, project_id: str | None, message: str, images: li
             return
     final = None
     first = True
-    for ev in run_turn_stream(session_id, project_id, message, images, now=now, debug=debug):
+    for ev in run_turn_stream(session_id, project_id, message, images, now=now, debug=debug,
+                              attachment_context=attachment_context):
         if first and ev.get("type") == "status" and ev.get("text") == "Ищу в документации…":
             first = False
             continue
@@ -116,15 +117,18 @@ def _serve_cached(hit: dict, level: str, extra: dict, sess: dict, session_id: st
 
 
 def ask_sync(session_id: str, project_id: str | None, message: str, images: list[dict] | None = None,
-             now: datetime | None = None, debug: bool = False, allowed_sections: list[str] | None = None) -> dict:
+             now: datetime | None = None, debug: bool = False, allowed_sections: list[str] | None = None, *,
+             attachment_context: str = "") -> dict:
     # a private Context: the section restriction set by ask_events must not outlive this call
-    return contextvars.copy_context().run(_ask_sync, session_id, project_id, message, images, now, debug, allowed_sections)
+    return contextvars.copy_context().run(_ask_sync, session_id, project_id, message, images, now, debug,
+                                          allowed_sections, attachment_context)
 
 
-def _ask_sync(session_id, project_id, message, images, now, debug, allowed_sections) -> dict:
+def _ask_sync(session_id, project_id, message, images, now, debug, allowed_sections, attachment_context) -> dict:
     statuses = []
     final: dict = {}
-    for ev in ask_events(session_id, project_id, message, images, now, debug, allowed_sections):
+    for ev in ask_events(session_id, project_id, message, images, now, debug, allowed_sections,
+                         attachment_context=attachment_context):
         if ev["type"] == "status":
             statuses.append(ev["text"])
         elif ev["type"] == "final":

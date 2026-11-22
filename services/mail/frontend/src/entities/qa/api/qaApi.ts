@@ -12,8 +12,25 @@ import {
 
 export const qaApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
-    ask: build.mutation<Answer, { message: string }>({
-      query: (body) => ({ url: '/chat/ask', method: 'POST', body }),
+    ask: build.mutation<Answer, { message: string; files?: File[] }>({
+      query: ({ message, files }) => {
+        if (!files?.length) {
+          return { url: '/chat/ask', method: 'POST', body: { message } };
+        }
+        const body = new FormData();
+        body.set('message', message);
+        for (const file of files) {
+          body.append('files', file);
+        }
+        return { url: '/chat/ask/attachments', method: 'POST', body };
+      },
+    }),
+    transcribe: build.mutation<{ text: string }, Blob>({
+      query: (audio) => {
+        const body = new FormData();
+        body.set('audio', audio, 'voice.wav');
+        return { url: '/chat/transcribe', method: 'POST', body };
+      },
     }),
     resetChat: build.mutation<undefined, undefined>({
       query: () => ({ url: '/chat/reset', method: 'POST' }),
@@ -38,6 +55,7 @@ export const qaApi = baseApi.injectEndpoints({
 
 export const {
   useAskMutation,
+  useTranscribeMutation,
   useResetChatMutation,
   useAskAboutDraftMutation,
   useReplyDraftMutation,

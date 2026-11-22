@@ -93,6 +93,9 @@ class RagClient:
     async def ask_sync(self, payload: dict) -> dict:
         return await self._json("POST", "/ask/sync", json=payload)
 
+    async def transcribe(self, data_base64: str, mime: str) -> dict:
+        return await self._json("POST", "/transcribe", json={"data_base64": data_base64, "mime": mime})
+
     async def reset_session(self, session_id: str, project_id: str) -> None:
         await self._request("POST", f"/sessions/{session_id}/reset", params={"project_id": project_id})
 

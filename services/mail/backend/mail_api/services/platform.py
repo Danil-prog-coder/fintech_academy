@@ -82,9 +82,18 @@ class PlatformClient:
                                json={"acting_external_id": acting})
 
     # questions
-    async def ask(self, project_id: str, ext: str, message: str, channel: str = "mail") -> dict:
-        return await self.call("POST", f"/v1/projects/{project_id}/ask",
-                               json={"external_id": ext, "message": message, "channel": channel})
+    async def ask(self, project_id: str, ext: str, message: str, channel: str = "mail", *,
+                  images: list[dict] | None = None, attachments: list[dict] | None = None) -> dict:
+        body = {"external_id": ext, "message": message, "channel": channel}
+        if images:
+            body["images"] = images
+        if attachments:
+            body["attachments"] = attachments
+        return await self.call("POST", f"/v1/projects/{project_id}/ask", json=body)
+
+    async def transcribe(self, project_id: str, ext: str, data_base64: str, mime: str) -> dict:
+        return await self.call("POST", f"/v1/projects/{project_id}/transcribe",
+                               json={"external_id": ext, "data_base64": data_base64, "mime": mime})
 
     async def reset_dialog(self, project_id: str, ext: str) -> None:
         await self.call("POST", f"/v1/projects/{project_id}/members/{ext}/reset-dialog")

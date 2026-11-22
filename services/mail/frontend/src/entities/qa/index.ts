@@ -6,6 +6,7 @@ export {
   useReplyDraftMutation,
   useResetChatMutation,
   useSendFeedbackMutation,
+  useTranscribeMutation,
 } from './api/qaApi';
 export { describeAskError, type AskErrorInfo } from './lib/describeAskError';
 export { actionLabel, recommendationText } from './lib/labels';

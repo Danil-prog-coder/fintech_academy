@@ -12,6 +12,7 @@ documentation has no answer). Run: make -C tests/e2e test (creates its own venv 
 from __future__ import annotations
 
 import asyncio
+import base64
 import hashlib
 import json
 import os
@@ -19,11 +20,14 @@ import re
 import secrets
 import tempfile
 import time
+import wave
+from io import BytesIO
 from types import SimpleNamespace
 
 import httpx
 import numpy as np
 import pytest
+from docx import Document
 
 TMP = tempfile.mkdtemp(prefix="platform-e2e-")
 INTEGRATION_KEY = "ik_mail-demo_" + secrets.token_urlsafe(32)
@@ -42,6 +46,7 @@ os.environ.update({
 
 import rag_service.agent.loop as rag_loop  # noqa: E402
 import rag_service.api.app as rag_app  # noqa: E402
+from rag_service.api import voice  # noqa: E402
 from rag_service.core.config import get_settings as rag_settings  # noqa: E402
 from rag_service.index import embeddings as rag_embeddings  # noqa: E402
 from rag_service.ingest import pipeline as rag_pipeline  # noqa: E402
@@ -196,7 +201,7 @@ async def _register(mail: httpx.AsyncClient, email: str) -> dict:
     return {"Authorization": f"Bearer {r.json()['access_token']}"}
 
 
-async def test_whole_platform(platform):
+async def test_whole_platform(platform, monkeypatch):
     m, a = platform.mail, platform.admin
     owner, colleague = await _register(m, "owner@corp.example.com"), await _register(m, "colleague@corp.example.com")
 
@@ -240,6 +245,43 @@ async def test_whole_platform(platform):
     assert page.status_code == 200 and "Регламент отпусков" in page.text
     forged = await a.get(re.sub(r"sig=[^&#]+", "sig=forged", link).replace("https://platform.test", ""))
     assert forged.status_code == 404
+
+    # 4b. Chat uploads are available to the agent and the answer still cites the project's documentation.
+    attachment_text = "В черновике заявления указан отпуск за ноябрь."
+    draft_bytes = BytesIO()
+    draft = Document()
+    draft.add_paragraph("Вложение в формате DOCX.")
+    draft.save(draft_bytes)
+    r = await m.post("/chat/ask/attachments", headers=colleague,
+                     data={"message": "Где оформляется заявление на отпуск?"},
+                     files=[("files", ("Заявление.txt", attachment_text.encode(), "text/plain")),
+                            ("files", ("draft.docx", draft_bytes.getvalue(),
+                                       "application/vnd.openxmlformats-officedocument.wordprocessingml.document"))])
+    assert r.status_code == 200, r.text
+    assert r.json()["action"] == "answer" and r.json()["sources"][0]["document_title"] == "Регламент отпусков"
+    assert any(isinstance(content, str) and attachment_text in content for content in CALLS[-1])
+    assert any(isinstance(content, str) and "Вложение в формате DOCX." in content for content in CALLS[-1])
+    r = await m.post("/chat/ask/attachments", headers=colleague,
+                     files={"files": ("broken.pdf", b"invalid PDF", "application/pdf")})
+    assert r.status_code == 422 and r.json()["code"] == "bad_attachment"
+
+    # 4c. A voice message goes through the project membership check and becomes an ordinary question.
+    wav = BytesIO()
+    with wave.open(wav, "wb") as recording:
+        recording.setparams((1, 2, 16000, 0, "NONE", "not compressed"))
+        recording.writeframes(b"\0\0" * 1600)
+    spoken_question = "Кто согласует отпуск?"
+
+    def fake_transcription(**kwargs):
+        audio = kwargs["messages"][1]["content"][0]["input_audio"]
+        assert audio["format"] == "wav" and base64.b64decode(audio["data"]) == wav.getvalue()
+        return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=spoken_question))])
+
+    monkeypatch.setattr(voice, "chat", fake_transcription)
+    r = await m.post("/chat/transcribe", headers=colleague, files={"audio": ("voice.wav", wav.getvalue(), "audio/wav")})
+    assert r.status_code == 200 and r.json() == {"text": spoken_question}
+    r = await m.post("/chat/ask", headers=colleague, json={"message": r.json()["text"]})
+    assert r.status_code == 200 and r.json()["action"] == "answer"
 
     # 5. «Спросить у ИИ» on a draft: the answer is in the documentation, the letter need not be sent
     r = await m.post("/mail/ask", headers=colleague, json={"draft": "Коллеги, кто согласует отпуск?"})
@@ -291,6 +333,9 @@ async def test_whole_platform(platform):
     stranger = await _register(m, "stranger@corp.example.com")
     r = await m.post("/chat/ask", headers=stranger, json={"message": "Где оформляется отпуск?"})
     assert r.status_code == 409 and r.json()["code"] == "no_project"
+    r = await a.post(f"/v1/projects/{pid}/transcribe", headers={"X-Api-Key": INTEGRATION_KEY},
+                     json={"external_id": "mail-user-3", "mime": "audio/wav", "data_base64": "AA=="})
+    assert r.status_code == 403 and r.json()["code"] == "not_a_member"
 
     # 11. Statistics on the site see all of it
     stats = (await a.get("/panel/api/stats")).json()
