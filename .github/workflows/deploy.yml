@@ -2,7 +2,7 @@
 # Секреты репозитория (Settings → Secrets and variables → Actions):
 #   DEPLOY_HOST     — IP сервера
 #   DEPLOY_USER     — пользователь на сервере (deploy)
-#   DEPLOY_SSH_KEY  — приватный ключ, публичная часть которого лежит в ~/.ssh/authorized_keys на сервере
+#   DEPLOY_SSH_KEY  — приватный ключ (как есть или `base64 -w0 ~/.ssh/gh_actions`), его .pub — в authorized_keys сервера
 # На сервере репозиторий склонирован в ~/app, .env-файлы лежат там же (в git не попадают и не затираются).
 name: Deploy
 
@@ -26,7 +26,14 @@ jobs:
           HOST: ${{ secrets.DEPLOY_HOST }}
         run: |
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
-          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key && chmod 600 ~/.ssh/deploy_key
+          # ключ принимается как есть (-----BEGIN…) или одной строкой base64 — так его проще скопировать из терминала
+          if printf '%s' "$SSH_KEY" | grep -q 'BEGIN OPENSSH'; then
+            printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          else
+            printf '%s' "$SSH_KEY" | tr -d ' \r\n' | base64 -d > ~/.ssh/deploy_key
+          fi
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keygen -y -f ~/.ssh/deploy_key >/dev/null || { echo "DEPLOY_SSH_KEY повреждён"; exit 1; }
           ssh-keyscan -t ed25519 -H "$HOST" >> ~/.ssh/known_hosts
 
       - name: Deploy
