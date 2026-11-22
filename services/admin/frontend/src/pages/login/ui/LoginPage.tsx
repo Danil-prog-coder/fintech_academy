@@ -1,74 +1,22 @@
-import { LogIn } from 'lucide-react';
-import { useState } from 'react';
-import { useNavigate } from 'react-router';
+import { Link } from 'react-router';
 
-import { useLoginMutation } from '@/entities/session';
-import { getErrorMessage } from '@/shared/api';
+import { useEnterProject } from '@/entities/session';
+import { AuthForm } from '@/features/site-auth';
 import { routePaths } from '@/shared/config';
-import { Button, Card, layout, Logo, Notice, TextField } from '@/shared/ui';
+import { Card, layout, Logo } from '@/shared/ui';
 
-/** Вход: логин, пароль и код проекта (код выдаётся владельцу при создании проекта). */
+/** Вход: логин и пароль аккаунта сайта. Дальше — свой проект или выбор проекта. */
 export const LoginPage = () => {
-  const [login, setLogin] = useState('');
-  const [password, setPassword] = useState('');
-  const [code, setCode] = useState('');
-  const [doLogin, { isLoading, error }] = useLoginMutation();
-  const navigate = useNavigate();
-
+  const enterProject = useEnterProject();
   return (
     <div className={layout.center}>
       <div className={layout.narrow}>
         <Card>
           <Logo caption="Панель проекта" />
-          <form
-            className={layout.stack}
-            onSubmit={(event) => {
-              event.preventDefault();
-              void doLogin({ login: login.trim(), password, project_code: code.trim() })
-                .unwrap()
-                .then((me) =>
-                  navigate(me.role === 'support' ? routePaths.tickets : routePaths.root, {
-                    replace: true,
-                  }),
-                )
-                .catch(() => undefined);
-            }}
-          >
-            <TextField
-              label="Логин"
-              placeholder="Логин"
-              autoComplete="username"
-              value={login}
-              onChange={setLogin}
-            />
-            <TextField
-              label="Пароль"
-              placeholder="Пароль"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={setPassword}
-            />
-            <TextField
-              label="Код проекта"
-              placeholder="Код проекта"
-              autoComplete="off"
-              value={code}
-              onChange={setCode}
-            />
-            <Button
-              type="submit"
-              variant="primary"
-              icon={<LogIn size={18} />}
-              disabled={isLoading || !login || !password || !code}
-            >
-              Войти
-            </Button>
-          </form>
-          {error ? <Notice tone="danger">{getErrorMessage(error)}</Notice> : null}
+          <AuthForm mode="login" onDone={enterProject} />
           <p className={layout.muted}>
-            Код проекта знает владелец. Если вы ещё не задали пароль — откройте ссылку, которую
-            получили при назначении статуса.
+            Нет аккаунта? <Link to={routePaths.register}>Зарегистрируйтесь</Link> — после этого
+            можно создать проект или войти в чужой как админ по коду проекта.
           </p>
         </Card>
       </div>

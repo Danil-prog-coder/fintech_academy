@@ -106,7 +106,6 @@ def verify_webhook(secret: str, body: bytes, header: str, tolerance_s: int = 300
 
 
 LOGIN_RE = re.compile(r"^[a-z0-9._@-]{3,64}$")
-PASSWORD_MIN, PASSWORD_MAX = 10, 128
 
 
 def normalize_login(login: str) -> str:

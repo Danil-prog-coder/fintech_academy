@@ -161,14 +161,34 @@ async def create_project(e, owner="u-owner", login="owner"):
     return r.json()
 
 
-async def set_password(e, setup_url, password="correct-horse-battery"):
+PW = "correct-horse-battery"
+CSRF = {"X-Requested-With": "panel"}
+
+
+def new_client(e) -> httpx.AsyncClient:
+    """Another browser: its own cookie jar."""
+    return httpx.AsyncClient(transport=e.client._transport, base_url="https://api.test")
+
+
+async def register(client, login, password=PW):
+    r = await client.post("/panel/api/auth/register", headers=CSRF, json={"login": login, "password": password})
+    assert r.status_code == 201, r.text
+    return r.json()
+
+
+async def set_password(e, setup_url, password=PW, login=None):
+    """The person from a link of an integration: registers a site account (login — the hint from the link) and attaches
+    the access to it. Happens in his own browser, so the caller's cookies stay as they were."""
     token = setup_url.split("token=", 1)[1]
-    r = await e.client.post("/panel/api/auth/setup", json={"token": token, "password": password})
-    assert r.status_code == 200, r.text
+    async with new_client(e) as browser:
+        info = (await browser.get("/panel/api/auth/invite", params={"token": token})).json()
+        await register(browser, login or info["login_hint"], password)
+        r = await browser.post("/panel/api/auth/claim", headers=CSRF, json={"token": token})
+        assert r.status_code == 200, r.text
     return password
 
 
-async def panel_login(e, login, password, code):
-    r = await e.client.post("/panel/api/auth/login", json={"login": login, "password": password, "project_code": code})
+async def panel_login(e, login, password, client=None):
+    r = await (client or e.client).post("/panel/api/auth/login", json={"login": login, "password": password})
     assert r.status_code == 200, r.text
-    return {"X-Requested-With": "panel"}
+    return dict(CSRF)

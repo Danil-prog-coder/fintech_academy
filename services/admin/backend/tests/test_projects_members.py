@@ -1,6 +1,4 @@
-import httpx
-
-from tests.conftest import create_project, panel_login, set_password
+from tests.conftest import CSRF, PW, create_project, new_client, panel_login, register, set_password
 
 
 async def test_create_project_returns_code_once_and_owner_can_log_in(env):
@@ -8,11 +6,15 @@ async def test_create_project_returns_code_once_and_owner_can_log_in(env):
     pid, code = data["project"]["id"], data["project_code"]
     assert data["project"]["role"] == "owner" and code.startswith(pid + "-")
     assert data["owner_panel_setup_url"].startswith("https://panel.test/setup?token=")
+    token = data["owner_panel_setup_url"].split("=", 1)[1]
+    info = (await env.client.get("/panel/api/auth/invite", params={"token": token})).json()
+    assert info == {"project": {"id": pid, "name": "Проект X", "created_at": info["project"]["created_at"]},
+                    "role": "owner", "login_hint": "owner", "display_name": "Оля"}
     pw = await set_password(env, data["owner_panel_setup_url"])
     # the link is single-use
-    r = await env.client.post("/panel/api/auth/setup", json={"token": data["owner_panel_setup_url"].split("=")[1], "password": pw})
-    assert r.status_code == 410
-    await panel_login(env, "owner", pw, code)
+    assert (await env.client.get("/panel/api/auth/invite", params={"token": token})).status_code == 410
+    # login + password only; the only project opens at once
+    await panel_login(env, "owner", pw)
     me = (await env.client.get("/panel/api/me")).json()
     assert me == {"login": "owner", "role": "owner", "display_name": "Оля", "external_id": "u-owner",
                   "project": {"id": pid, "name": "Проект X"}}
@@ -20,21 +22,19 @@ async def test_create_project_returns_code_once_and_owner_can_log_in(env):
     assert (await env.client.get("/panel/api/project/code")).json()["code"] == code
 
 
-async def test_login_needs_all_three_and_says_the_same_on_any_mistake(env):
+async def test_login_says_the_same_on_any_mistake(env):
     data = await create_project(env)
     pw = await set_password(env, data["owner_panel_setup_url"])
-    code = data["project_code"]
-    bad = [("owner", "wrong-password-123", code), ("nobody", pw, code), ("owner", pw, code[:-1] + "x"), ("owner", pw, "garbage")]
-    for login, password, c in bad:
-        r = await env.client.post("/panel/api/auth/login", json={"login": login, "password": password, "project_code": c})
-        assert r.status_code == 401 and r.json()["message"] == "Неверный логин, пароль или код проекта"
+    for login, password in [("owner", "wrong-password-123"), ("nobody", pw), ("", pw)]:
+        r = await env.client.post("/panel/api/auth/login", json={"login": login, "password": password})
+        assert r.status_code == 401 and r.json()["message"] == "Неверный логин или пароль"
 
 
 async def test_login_attempts_are_limited(env):
-    data = await create_project(env)
+    await register(env.client, "owner")
     for _ in range(env.settings.login_attempts):
-        await env.client.post("/panel/api/auth/login", json={"login": "owner", "password": "x" * 12, "project_code": data["project_code"]})
-    r = await env.client.post("/panel/api/auth/login", json={"login": "owner", "password": "x" * 12, "project_code": data["project_code"]})
+        await env.client.post("/panel/api/auth/login", json={"login": "owner", "password": "x" * 12})
+    r = await env.client.post("/panel/api/auth/login", json={"login": "owner", "password": PW})
     assert r.status_code == 429
 
 
@@ -97,27 +97,31 @@ async def test_status_rules(env):
     assert (await rm("u-owner", "u-sup")).status_code == 204
 
 
-async def test_demoted_admin_loses_the_site(env):
+async def test_demoted_admin_loses_the_project_but_not_his_account(env):
     data = await create_project(env)
-    pid, code = data["project"]["id"], data["project_code"]
+    pid = data["project"]["id"]
     r = await env.client.put(f"/v1/projects/{pid}/members/u-admin", headers=env.h,
                              json={"acting_external_id": "u-owner", "role": "admin", "login": "admin1"})
     pw = await set_password(env, r.json()["panel_setup_url"])
-    admin = httpx.AsyncClient(transport=env.client._transport, base_url="https://api.test")
-    r = await admin.post("/panel/api/auth/login", json={"login": "admin1", "password": pw, "project_code": code})
-    assert r.status_code == 200 and r.json()["role"] == "admin"
-    await env.client.put(f"/v1/projects/{pid}/members/u-admin", headers=env.h, json={"acting_external_id": "u-owner", "role": "user"})
-    assert (await admin.get("/panel/api/me")).status_code == 401
-    r = await admin.post("/panel/api/auth/login", json={"login": "admin1", "password": pw, "project_code": code})
-    assert r.status_code == 401
-    await admin.aclose()
+    async with new_client(env) as admin:
+        await panel_login(env, "admin1", pw, client=admin)
+        assert (await admin.get("/panel/api/me")).json()["role"] == "admin"
+        await env.client.put(f"/v1/projects/{pid}/members/u-admin", headers=env.h,
+                             json={"acting_external_id": "u-owner", "role": "user"})
+        me = (await admin.get("/panel/api/me")).json()
+        assert me["project"] is None and me["role"] is None  # back to the project picker
+        r = await admin.get("/panel/api/documents")
+        assert r.status_code == 409 and r.json()["code"] == "project_not_selected"
+        assert (await admin.get("/panel/api/projects")).json()["projects"] == []
+        r = await admin.post(f"/panel/api/projects/{pid}/select", headers=CSRF)
+        assert r.status_code == 404
 
 
 async def test_sections_restrict_users_but_not_managers(env):
     data = await create_project(env)
-    pid, code = data["project"]["id"], data["project_code"]
+    pid = data["project"]["id"]
     pw = await set_password(env, data["owner_panel_setup_url"])
-    h = await panel_login(env, "owner", pw, code)
+    h = await panel_login(env, "owner", pw)
     assert (await env.client.post("/panel/api/sections", headers=h, json={"slug": "security", "title": "Безопасность"})).status_code == 201
     r = await env.client.put(f"/v1/projects/{pid}/members/u-1", headers=env.h,
                              json={"acting_external_id": "u-owner", "role": "user", "allowed_sections": ["nope"]})
@@ -136,11 +140,11 @@ async def test_sections_restrict_users_but_not_managers(env):
 
 async def test_panel_requires_csrf_header_and_role(env):
     data = await create_project(env)
-    pid, code = data["project"]["id"], data["project_code"]
+    pid = data["project"]["id"]
     r = await env.client.put(f"/v1/projects/{pid}/members/u-sup", headers=env.h,
                              json={"acting_external_id": "u-owner", "role": "support", "login": "sup1"})
     pw = await set_password(env, r.json()["panel_setup_url"])
-    h = await panel_login(env, "sup1", pw, code)
+    h = await panel_login(env, "sup1", pw)
     assert (await env.client.get("/panel/api/documents")).status_code == 403
     assert (await env.client.get("/panel/api/escalations")).status_code == 200
     assert (await env.client.post("/panel/api/auth/logout")).status_code == 403  # no X-Requested-With

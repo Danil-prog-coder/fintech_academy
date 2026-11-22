@@ -1,5 +1,7 @@
 """API of the site for owners, admins and support (`/panel/api/*`): cookie session, role-gated.
 
+A person registers a site account, then creates a project, joins one as an admin with the project code, or attaches
+access given by an integration (a one-time link); the session remembers the chosen project.
 Owner — everything; admin — documentation, users, questions without an answer, statistics, FAQ, tickets (read and
 work); support — tickets only. Members themselves are registered by the integration (their ids are the
 integrator's); the site edits statuses and sections of existing members.
@@ -21,9 +23,9 @@ from ..models import Escalation, JiraSettings, Member, Section
 from ..rag_client import RagError, RagUnavailable
 from ..security import new_token, verify_secret
 from ..services import accounts, docs, escalations, projects, questions, stats
-from ..services.accounts import SESSION_COOKIE, PanelUser
+from ..services.accounts import SESSION_COOKIE, PanelUser, SiteSession
 from ..services.jira import JiraError
-from .deps import client_ip, get_core, get_db, managers, owner_only, panel_user, support_staff
+from .deps import client_ip, get_core, get_db, managers, owner_only, panel_user, site_session, support_staff
 
 router = APIRouter(prefix="/panel/api", tags=["panel"])
 UPLOAD_MAX_BYTES = 50 * 1024 * 1024
@@ -38,49 +40,103 @@ def _rag_errors(e: Exception) -> ApiError:
     return ApiError(500, "internal_error", "Внутренняя ошибка")
 
 
-# ------------------------------------------------------------------ auth
-class SetupIn(BaseModel):
-    token: str = Field(min_length=10, max_length=128)
-    password: str = Field(max_length=128)
-
-
-class LoginIn(BaseModel):
+# ------------------------------------------------------------------ auth: site account
+class CredentialsIn(BaseModel):
     login: str = Field(max_length=64)
     password: str = Field(max_length=128)
+
+
+class TokenIn(BaseModel):
+    token: str = Field(min_length=10, max_length=128)
+
+
+class ProjectCreateIn(BaseModel):
+    name: str = Field(min_length=1, max_length=64)
+
+
+class JoinIn(BaseModel):
     project_code: str = Field(max_length=64)
 
 
-def _me(u: PanelUser) -> dict:
-    return {"login": u.account.login, "role": u.role.value, "display_name": u.member.display_name,
-            "external_id": u.member.external_id,
-            "project": {"id": u.project.public_id, "name": u.project.name}}
+def _me(s: SiteSession) -> dict:
+    """The signed-in account and, when a project is chosen, the project and the role in it."""
+    out = {"login": s.user.login, "project": None, "role": None, "display_name": None, "external_id": None}
+    if s.account is not None and s.project is not None:
+        out.update(project={"id": s.project.public_id, "name": s.project.name}, role=s.account.member.role,
+                   display_name=s.account.member.display_name, external_id=s.account.member.external_id)
+    return out
 
 
-@router.post("/auth/setup")
-async def setup(body: SetupIn, db: AsyncSession = Depends(get_db)) -> dict:
-    return await accounts.setup_password(db, body.token, body.password)
+def _set_cookie(response: Response, core: Core, token: str) -> None:
+    response.set_cookie(SESSION_COOKIE, token, httponly=True, secure=core.settings.cookie_secure, samesite="lax",
+                        max_age=core.settings.session_ttl_hours * 3600, path="/")
+
+
+@router.post("/auth/register", status_code=201)
+async def register(body: CredentialsIn, request: Request, response: Response, core: Core = Depends(get_core),
+                   db: AsyncSession = Depends(get_db)) -> dict:
+    token, s = await accounts.register(core, db, body.login, body.password, client_ip(request))
+    _set_cookie(response, core, token)
+    return _me(s)
 
 
 @router.post("/auth/login")
-async def login(body: LoginIn, request: Request, response: Response, core: Core = Depends(get_core),
+async def login(body: CredentialsIn, request: Request, response: Response, core: Core = Depends(get_core),
                 db: AsyncSession = Depends(get_db)) -> dict:
-    token, user = await accounts.login(core, db, body.login, body.password, body.project_code, client_ip(request))
-    response.set_cookie(SESSION_COOKIE, token, httponly=True, secure=core.settings.cookie_secure, samesite="lax",
-                        max_age=core.settings.session_ttl_hours * 3600, path="/")
-    return _me(user)
+    token, s = await accounts.login(core, db, body.login, body.password, client_ip(request))
+    _set_cookie(response, core, token)
+    return _me(s)
 
 
 @router.post("/auth/logout", status_code=204)
-async def logout(response: Response, user: PanelUser = Depends(panel_user), db: AsyncSession = Depends(get_db)) -> Response:
-    await accounts.logout(db, user.session_hash)
+async def logout(response: Response, s: SiteSession = Depends(site_session), db: AsyncSession = Depends(get_db)) -> Response:
+    await accounts.logout(db, s.session_hash)
     response.delete_cookie(SESSION_COOKIE, path="/")
     response.status_code = 204
     return response
 
 
+@router.get("/auth/invite")
+async def invite(token: str = Query(min_length=10, max_length=128), db: AsyncSession = Depends(get_db)) -> dict:
+    """What a link from an integration gives: project and status (shown before signing in)."""
+    return await accounts.invite_info(db, token)
+
+
+@router.post("/auth/claim")
+async def claim(body: TokenIn, s: SiteSession = Depends(site_session), db: AsyncSession = Depends(get_db)) -> dict:
+    """Attach the access from the link to the signed-in account and open that project."""
+    return _me(await accounts.claim(db, s, body.token))
+
+
 @router.get("/me")
-async def me(user: PanelUser = Depends(panel_user)) -> dict:
-    return _me(user)
+async def me(s: SiteSession = Depends(site_session)) -> dict:
+    return _me(s)
+
+
+# ------------------------------------------------------------------ projects of the account
+@router.get("/projects")
+async def my_projects(s: SiteSession = Depends(site_session), db: AsyncSession = Depends(get_db)) -> dict:
+    return {"projects": await accounts.my_projects(db, s)}
+
+
+@router.post("/projects", status_code=201)
+async def create_project(body: ProjectCreateIn, s: SiteSession = Depends(site_session), core: Core = Depends(get_core),
+                         db: AsyncSession = Depends(get_db)) -> dict:
+    """Create a project: the account becomes its owner. The project code is shown once (later — in «Настройки»)."""
+    s, code = await accounts.create_project(core, db, s, body.name)
+    return {**_me(s), "project_code": code}
+
+
+@router.post("/projects/join")
+async def join_project(body: JoinIn, request: Request, s: SiteSession = Depends(site_session),
+                       core: Core = Depends(get_core), db: AsyncSession = Depends(get_db)) -> dict:
+    """Join a project as an admin with its code."""
+    return _me(await accounts.join_as_admin(core, db, s, body.project_code, client_ip(request)))
+
+
+@router.post("/projects/{project_id}/select")
+async def select_project(project_id: str, s: SiteSession = Depends(site_session), db: AsyncSession = Depends(get_db)) -> dict:
+    return _me(await accounts.select_project(db, s, project_id))
 
 
 # ------------------------------------------------------------------ project

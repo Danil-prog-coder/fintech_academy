@@ -18,6 +18,7 @@ export const baseApi = createApi({
   }),
   tagTypes: [
     'Me',
+    'Projects',
     'Stats',
     'Docs',
     'Jobs',

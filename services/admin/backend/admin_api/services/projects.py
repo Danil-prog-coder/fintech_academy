@@ -8,8 +8,9 @@ The integrator owns identity: it passes its own user ids (`external_id`) and the
 * an admin manages only users: adds them, restricts their sections, removes them;
 * nobody changes his own status.
 
-owner / admin / support get a panel account (login + password + project code). The password is never sent through
-the API: the response carries a one-time link where the person sets it.
+owner / admin / support get access to the site (a panel account). The person signs in with his own site account:
+the API response carries a one-time link that attaches the access to it (register or sign in, then confirm).
+A site account that holds the project code joins the project as an admin (`join_with_code`).
 """
 
 from __future__ import annotations
@@ -18,7 +19,7 @@ import re
 from dataclasses import dataclass
 from datetime import timedelta
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core import Core
@@ -28,12 +29,14 @@ from ..models import Integration, Member, PanelAccount, PanelSession, Project, R
 from ..security import (
     LOGIN_RE,
     PUBLIC_ID_RE,
+    code_public_id,
     hash_secret,
     new_project_code,
     new_public_id,
     new_token,
     normalize_login,
     sha256,
+    verify_secret,
 )
 
 NAME_MAX = 64
@@ -80,6 +83,16 @@ async def get_project(session: AsyncSession, integ: Integration, public_id: str)
     return project
 
 
+async def project_by_code(session: AsyncSession, integ: Integration, code: str) -> Project:
+    """The project of this integration the code opens; a wrong code and another integration's project look the same."""
+    public_id = code_public_id(code)
+    project = await session.scalar(select(Project).where(Project.public_id == public_id)) if public_id else None
+    ok = await verify_secret(project.code_hash if project else None, (code or "").strip())
+    if not ok or project is None or project.integration_id != integ.id:
+        raise forbidden("bad_project_code", "Неверный код проекта")
+    return project
+
+
 async def find_member(session: AsyncSession, project: Project, external_id: str) -> Member | None:
     return await session.scalar(select(Member).where(Member.project_id == project.id, Member.external_id == external_id))
 
@@ -113,10 +126,10 @@ async def _setup_link(core: Core, session: AsyncSession, account: PanelAccount) 
 
 
 async def _ensure_account(core: Core, session: AsyncSession, project: Project, member: Member,
-                          login: str | None) -> str | None:
-    """Panel account for owner / admin / support. Returns a setup link when the account is new."""
+                          login: str | None, issue_link: bool = True) -> str | None:
+    """Panel account for owner / admin / support. Returns a link to attach it when the account is new."""
     if member.account is not None:
-        if login and normalize_login(login) != member.account.login and member.account.password_hash is None:
+        if login and normalize_login(login) != member.account.login and member.account.user_id is None:
             member.account.login = await _free_login(session, project, check_login(login), member.account.id)
         return None
     if not login:
@@ -124,7 +137,18 @@ async def _ensure_account(core: Core, session: AsyncSession, project: Project, m
     account = PanelAccount(project_id=project.id, login=await _free_login(session, project, check_login(login)))
     member.account = account
     await session.flush()
-    return await _setup_link(core, session, account)
+    return await _setup_link(core, session, account) if issue_link else None
+
+
+async def _free_label(session: AsyncSession, project: Project, wanted: str) -> str:
+    """A free account label in the project for access created on the site: the site login, or the login with a suffix."""
+    base = wanted[:58]
+    for n in range(1, 1000):
+        label = base if n == 1 else f"{base}-{n}"
+        if await session.scalar(select(PanelAccount.id).where(PanelAccount.project_id == project.id,
+                                                              PanelAccount.login == label)) is None:
+            return label
+    raise conflict("login_taken", "Такой логин в проекте уже занят")
 
 
 async def _free_login(session: AsyncSession, project: Project, login: str, own_id: int | None = None) -> str:
@@ -137,8 +161,9 @@ async def _free_login(session: AsyncSession, project: Project, login: str, own_i
 
 # ------------------------------------------------------------------ projects
 async def create_project(core: Core, session: AsyncSession, integ: Integration, name: str, owner_external_id: str,
-                         owner_login: str, owner_display_name: str | None = None) -> tuple[Project, str, str]:
-    """→ (project, project code — shown once, owner's password setup link)."""
+                         owner_login: str, owner_display_name: str | None = None,
+                         issue_link: bool = True) -> tuple[Project, str, str]:
+    """→ (project, project code — shown once, the owner's link to attach the access to his site account)."""
     name = _clean_name(name)
     owner_external_id = check_external_id(owner_external_id)
     owner_login = check_login(owner_login)
@@ -158,7 +183,7 @@ async def create_project(core: Core, session: AsyncSession, integ: Integration, 
                    display_name=(owner_display_name or "")[:128] or None, account=None)
     session.add(owner)
     await session.flush()
-    link = await _ensure_account(core, session, project, owner, owner_login)
+    link = await _ensure_account(core, session, project, owner, owner_login, issue_link)  # a new project: login is free
     await session.commit()
     return project, code, link or ""
 
@@ -231,7 +256,8 @@ async def set_member(core: Core, session: AsyncSession, project: Project, acting
     if new_role.has_panel:
         link = await _ensure_account(core, session, project, target, login)
     elif target.account is not None:
-        await session.execute(delete(PanelSession).where(PanelSession.account_id == target.account.id))
+        # the person stays signed in to the site, but this project leaves his sessions (back to the project picker)
+        await session.execute(update(PanelSession).where(PanelSession.account_id == target.account.id).values(account_id=None))
         target.account = None  # delete-orphan: no site access for a plain user
     await session.commit()
     await session.refresh(target)
@@ -257,7 +283,8 @@ async def remove_member(session: AsyncSession, project: Project, acting_external
 
 async def reset_panel_password(core: Core, session: AsyncSession, project: Project, acting_external_id: str,
                                external_id: str) -> str:
-    """New one-time link to set the password: for oneself, or by the owner for anyone with a panel account."""
+    """New one-time link to attach the access to a site account: for oneself, or by the owner for anyone with access
+    to the site (e.g. the person lost his site account). Whoever opens the link takes the access over."""
     acting = await require_member(session, project, acting_external_id)
     target = await find_member(session, project, check_external_id(external_id))
     if target is None or target.account is None:
@@ -269,10 +296,58 @@ async def reset_panel_password(core: Core, session: AsyncSession, project: Proje
     return link
 
 
+async def join_with_code(core: Core, session: AsyncSession, project: Project, external_id: str, login: str | None,
+                         display_name: str | None) -> Member:
+    """Make the holder of the project code an admin (the code is checked by the caller).
+
+    Already an admin — nothing changes. Somebody the owner gave another status (support, or a demoted admin who is a user
+    now) does not get admin rights with the code: only the owner can change his status."""
+    external_id = check_external_id(external_id)
+    member = await find_member(session, project, external_id)
+    if member is not None and member.role in (Role.OWNER, Role.ADMIN):
+        if member.account is None:
+            member.account = PanelAccount(project_id=project.id, login=await _free_label(session, project, _label(login, external_id)))
+            await session.flush()
+        return member
+    if member is not None:
+        raise forbidden("status_by_owner", "Ваш статус в этом проекте назначил владелец — изменить его может только он")
+    if await session.scalar(select(func.count()).select_from(Member).where(Member.project_id == project.id,
+                                                                            Member.role == Role.ADMIN)) >= 1000:
+        raise conflict("members_limit", "Слишком много админов в проекте")
+    member = Member(project_id=project.id, external_id=external_id, role=Role.ADMIN,
+                    display_name=(display_name or "").strip()[:128] or None, account=None)
+    session.add(member)
+    await session.flush()
+    member.account = PanelAccount(project_id=project.id, login=await _free_label(session, project, _label(login, external_id)))
+    await session.flush()
+    return member
+
+
+def _label(login: str | None, external_id: str) -> str:
+    """A label for an account: the given login if it is a valid one, else something readable from the id."""
+    login = normalize_login(login or "")
+    if LOGIN_RE.match(login):
+        return login
+    fallback = re.sub(r"[^a-z0-9._@-]", "-", external_id.lower())[:58].strip("-")
+    return fallback if len(fallback) >= 3 else "admin"
+
+
+async def access_link(core: Core, session: AsyncSession, member: Member) -> str | None:
+    """A link to attach the member's site access, when it is not attached to a site account yet."""
+    if member.account is None or member.account.user_id is not None:
+        return None
+    link = await _setup_link(core, session, member.account)
+    await session.commit()
+    return link
+
+
 def member_view(m: Member) -> dict:
+    a = m.account
+    linked = a is not None and a.user_id is not None
     return {"external_id": m.external_id, "role": m.role, "display_name": m.display_name,
-            "allowed_sections": m.allowed_sections, "panel_login": m.account.login if m.account else None,
-            "panel_password_set": bool(m.account and m.account.password_hash),
+            "allowed_sections": m.allowed_sections,
+            "panel_login": (a.user.login if linked and a.user is not None else a.login) if a is not None else None,
+            "panel_password_set": linked,  # the access is attached to a site account
             "created_at": m.created_at.isoformat(), "updated_at": m.updated_at.isoformat()}
 
 

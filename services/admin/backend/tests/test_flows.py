@@ -11,7 +11,7 @@ async def _project_with_user(env):
     pid = data["project"]["id"]
     await env.client.put(f"/v1/projects/{pid}/members/u-1", headers=env.h, json={"acting_external_id": "u-owner", "role": "user"})
     pw = await set_password(env, data["owner_panel_setup_url"])
-    h = await panel_login(env, "owner", pw, data["project_code"])
+    h = await panel_login(env, "owner", pw)
     return pid, h, data
 
 
@@ -109,7 +109,7 @@ async def test_escalation_flow_with_support_and_jira(env):
     r = await env.client.put(f"/v1/projects/{pid}/members/u-sup", headers=env.h,
                              json={"acting_external_id": "u-owner", "role": "support", "login": "sup1"})
     pw = await set_password(env, r.json()["panel_setup_url"])
-    hs = await panel_login(env, "sup1", pw, data["project_code"])
+    hs = await panel_login(env, "sup1", pw)
     assert (await env.client.post(f"/panel/api/escalations/{key}/take", headers=hs)).json()["status"] == "in_progress"
     await env.client.post(f"/panel/api/escalations/{key}/reply", headers=hs, json={"text": "Здравствуйте! Уже смотрю."})
     await env.client.post(f"/panel/api/escalations/{key}/reply", headers=hs, json={"text": "проверить права", "internal": True})

@@ -68,7 +68,7 @@ const MemberRow = ({
       .then((r) => {
         setNote(
           r.panel_setup_url
-            ? `Сохранено. Ссылка, чтобы задать пароль: ${r.panel_setup_url}`
+            ? `Сохранено. Ссылка для входа на сайт (отправьте человеку): ${r.panel_setup_url}`
             : 'Сохранено.',
         );
       })
@@ -87,19 +87,21 @@ const MemberRow = ({
           {m.panel_login ? (
             <span className={layout.muted}>
               сайт: {m.panel_login}
-              {m.panel_password_set ? '' : ' (пароль не задан)'}
+              {m.panel_password_set ? '' : ' (ещё не привязан к аккаунту)'}
             </span>
           ) : null}
           {isOwner && m.panel_login ? (
             <IconButton
-              label="Ссылка для смены пароля"
+              label="Новая ссылка доступа"
               size="sm"
               icon={<KeyRound size={16} />}
               onClick={() => {
                 reset(m.external_id)
                   .unwrap()
                   .then((r) => {
-                    setNote(`Ссылка для пароля: ${r.panel_setup_url}`);
+                    setNote(
+                      `Новая ссылка доступа (по ней доступ перейдёт к другому аккаунту): ${r.panel_setup_url}`,
+                    );
                   })
                   .catch((e: unknown) => {
                     setNote(getErrorMessage(e));

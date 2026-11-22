@@ -28,6 +28,8 @@ class Settings(BaseSettings):
 
     # Integrations created at start-up: "slug:Name:key;slug2:Name2:key2" (keys ≥ 32 chars). Others — via the CLI.
     bootstrap_integrations: str = ""
+    # Projects created on the site belong to this integration (its users ask the questions); empty — the oldest one
+    site_projects_integration: str = ""
 
     # Panel sessions and password links
     session_ttl_hours: int = 12

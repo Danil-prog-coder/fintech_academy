@@ -44,6 +44,13 @@ class MemberPut(BaseModel):
     keep_sections: bool = Field(default=True, description="true — не трогать разделы, если allowed_sections не передан")
 
 
+class JoinIn(BaseModel):
+    external_id: str = Field(min_length=1, max_length=128)
+    project_code: str = Field(max_length=64, description="код проекта: его даёт владелец")
+    login: str | None = Field(default=None, max_length=64, description="подсказка для логина на сайте")
+    display_name: str | None = Field(default=None, max_length=128)
+
+
 class Acting(BaseModel):
     acting_external_id: str
 
@@ -123,7 +130,23 @@ async def create_project(body: ProjectCreate, integ: Integration = Depends(integ
     project, code, link = await projects.create_project(core, db, integ, body.name, body.owner_external_id,
                                                         body.owner_login, body.owner_display_name)
     return {"project": projects.project_view(project, "owner"), "project_code": code, "owner_panel_setup_url": link,
-            "note": "Код проекта показывается один раз: вместе с логином и паролем он нужен для входа на сайт."}
+            "note": "Код проекта показывается один раз. С ним в проект входят админы: на сайте или через POST /v1/projects/join."}
+
+
+@router.post("/projects/join")
+async def join_project(body: JoinIn, integ: Integration = Depends(integration), core: Core = Depends(get_core),
+                       db: AsyncSession = Depends(get_db)) -> dict:
+    """The holder of the project code becomes an admin of the project (as «Войти как админ» on the site)."""
+    ext = projects.check_external_id(body.external_id)
+    if not await core.limiter.hit(f"join:{integ.id}:{ext}", core.settings.login_attempts, core.settings.login_window_s):
+        raise ApiError(429, "too_many_attempts", "Слишком много попыток, подождите немного", retryable=True)
+    project = await projects.project_by_code(db, integ, body.project_code)
+    member = await projects.join_with_code(core, db, project, ext, body.login, body.display_name)
+    await db.commit()
+    await db.refresh(member)
+    link = await projects.access_link(core, db, member)
+    return {"project": projects.project_view(project, member.role), "member": projects.member_view(member),
+            **({"panel_setup_url": link} if link else {})}
 
 
 @router.get("/projects")

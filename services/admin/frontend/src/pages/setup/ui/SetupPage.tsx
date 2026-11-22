@@ -1,77 +1,124 @@
-import { KeyRound } from 'lucide-react';
+import { Link2 } from 'lucide-react';
 import { useState } from 'react';
-import { Link, useSearchParams } from 'react-router';
+import { useSearchParams } from 'react-router';
 
-import { useSetupPasswordMutation } from '@/entities/session';
+import {
+  roleLabel,
+  useClaimInviteMutation,
+  useEnterProject,
+  useGetInviteQuery,
+  useGetMeQuery,
+  type Invite,
+} from '@/entities/session';
+import { AuthForm } from '@/features/site-auth';
 import { getErrorMessage } from '@/shared/api';
-import { routePaths } from '@/shared/config';
-import { Button, Card, layout, Logo, Notice, TextField } from '@/shared/ui';
+import { Button, Card, layout, Logo, Notice, Spinner } from '@/shared/ui';
 
-/** Одноразовая ссылка: человек задаёт пароль сам, через API пароли не передаются. */
+interface ClaimProps {
+  token: string;
+  invite: Invite;
+}
+
+/** Нет входа: регистрация (логин подсказан из ссылки) или вход в существующий аккаунт, затем привязка. */
+const SignInAndClaim = ({ token, invite }: ClaimProps) => {
+  const [mode, setMode] = useState<'register' | 'login'>('register');
+  const [claim, { error }] = useClaimInviteMutation();
+  const enterProject = useEnterProject();
+  return (
+    <>
+      <AuthForm
+        key={mode}
+        mode={mode}
+        defaultLogin={mode === 'register' ? invite.login_hint : ''}
+        onDone={() => {
+          void claim({ token })
+            .unwrap()
+            .then(enterProject)
+            .catch(() => undefined);
+        }}
+      />
+      {error ? <Notice tone="danger">{getErrorMessage(error)}</Notice> : null}
+      <p className={layout.muted}>
+        {mode === 'register' ? 'Уже есть аккаунт на этом сайте? ' : 'Нет аккаунта? '}
+        <Button
+          variant="link"
+          size="sm"
+          onClick={() => {
+            setMode(mode === 'register' ? 'login' : 'register');
+          }}
+        >
+          {mode === 'register' ? 'Войдите в него' : 'Зарегистрируйтесь'}
+        </Button>
+      </p>
+    </>
+  );
+};
+
+const ClaimSignedIn = ({ token, login }: { token: string; login: string }) => {
+  const [claim, { isLoading, error }] = useClaimInviteMutation();
+  const enterProject = useEnterProject();
+  return (
+    <>
+      <Button
+        variant="primary"
+        icon={<Link2 size={18} />}
+        disabled={isLoading}
+        onClick={() => {
+          void claim({ token })
+            .unwrap()
+            .then(enterProject)
+            .catch(() => undefined);
+        }}
+      >
+        Добавить к аккаунту {login}
+      </Button>
+      {error ? <Notice tone="danger">{getErrorMessage(error)}</Notice> : null}
+    </>
+  );
+};
+
+/** Вошёл человек или нет — решается один раз при открытии: после входа запрос /me обновится, а форма не должна мигать. */
+const ClaimFlow = ({ token, invite, login }: ClaimProps & { login: string | null }) => {
+  const [signedInAs] = useState(login);
+  return signedInAs ? (
+    <ClaimSignedIn token={token} login={signedInAs} />
+  ) : (
+    <SignInAndClaim token={token} invite={invite} />
+  );
+};
+
+/** Одноразовая ссылка от интеграции: статус в проекте привязывается к аккаунту сайта. */
 export const SetupPage = () => {
   const [params] = useSearchParams();
   const token = params.get('token') ?? '';
-  const [password, setPassword] = useState('');
-  const [repeat, setRepeat] = useState('');
-  const [setup, { isLoading, error, data }] = useSetupPasswordMutation();
-  const mismatch = repeat.length > 0 && repeat !== password;
+  const invite = useGetInviteQuery(token, { skip: !token });
+  const me = useGetMeQuery(undefined);
+
+  let content;
+  if (!token) {
+    content = <Notice tone="danger">В ссылке нет токена — откройте ссылку целиком.</Notice>;
+  } else if (invite.isLoading || me.isLoading) {
+    content = <Spinner label="Проверяем ссылку" />;
+  } else if (invite.error || !invite.data) {
+    content = <Notice tone="danger">{getErrorMessage(invite.error)}</Notice>;
+  } else {
+    content = (
+      <>
+        <Notice tone="info" title={`Проект «${invite.data.project.name}»`}>
+          Вам назначен статус «{roleLabel[invite.data.role]}». Доступ к проекту добавится к вашему
+          аккаунту на этом сайте.
+        </Notice>
+        <ClaimFlow token={token} invite={invite.data} login={me.data?.login ?? null} />
+      </>
+    );
+  }
 
   return (
     <div className={layout.center}>
       <div className={layout.narrow}>
         <Card>
-          <Logo caption="Панель проекта" />
-          {data ? (
-            <Notice tone="success" title="Пароль задан">
-              Ваш логин: <strong>{data.login}</strong>
-              {data.project_name ? ` (проект «${data.project_name}»)` : ''}. Для входа понадобится
-              ещё код проекта. <Link to={routePaths.login}>Перейти ко входу</Link>
-            </Notice>
-          ) : (
-            <form
-              className={layout.stack}
-              onSubmit={(event) => {
-                event.preventDefault();
-                void setup({ token, password })
-                  .unwrap()
-                  .catch(() => undefined);
-              }}
-            >
-              <TextField
-                label="Новый пароль"
-                placeholder="Новый пароль (от 10 символов)"
-                type="password"
-                autoComplete="new-password"
-                value={password}
-                onChange={setPassword}
-              />
-              <TextField
-                label="Повторите пароль"
-                placeholder="Повторите пароль"
-                type="password"
-                autoComplete="new-password"
-                value={repeat}
-                onChange={setRepeat}
-              />
-              {mismatch ? (
-                <Notice tone="warning" compact>
-                  Пароли не совпадают
-                </Notice>
-              ) : null}
-              <Button
-                type="submit"
-                variant="primary"
-                icon={<KeyRound size={18} />}
-                disabled={isLoading || !token || password.length < 10 || mismatch || !repeat}
-              >
-                Сохранить пароль
-              </Button>
-            </form>
-          )}
-          {!token ? (
-            <Notice tone="danger">В ссылке нет токена — откройте ссылку целиком.</Notice>
-          ) : null}
-          {error ? <Notice tone="danger">{getErrorMessage(error)}</Notice> : null}
+          <Logo caption="Доступ к проекту" />
+          {content}
         </Card>
       </div>
     </div>

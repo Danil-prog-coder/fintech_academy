@@ -13,8 +13,8 @@
 | `backend/admin_api/api/v1.py` | открытый API: проекты, статусы, вопросы (sync / SSE), оценки, обращения, события, вебхук |
 | `backend/admin_api/api/panel.py` | API сайта по ролям: документация и разделы, участники, вопросы без ответа, статистика, FAQ, обращения, Jira, код проекта |
 | `backend/admin_api/api/public.py` | прокси подписанных ссылок на документы, вебхук Jira |
-| `backend/admin_api/services/projects.py` | проекты, коды, участники и правила статусов, ссылки для пароля |
-| `backend/admin_api/services/accounts.py` | вход: логин + пароль + код проекта, сессии, лимит попыток |
+| `backend/admin_api/services/projects.py` | проекты, коды, участники и правила статусов, вход по коду, ссылки доступа |
+| `backend/admin_api/services/accounts.py` | аккаунты сайта: регистрация и вход, выбор проекта, создание проекта, вход админом по коду, привязка доступа по ссылке, лимиты попыток |
 | `backend/admin_api/services/asking.py` | вопрос → RAG (разделы участника) → журнал, вопросы админам, обращения |
 | `backend/admin_api/services/escalations.py`, `jira.py` | обращения в ТП и их зеркало в Jira (идемпотентное создание, синхронизация, вебхук) |
 | `backend/admin_api/services/events.py` | outbox событий: опрос по курсору и вебхуки с подписью HMAC и повторами |

@@ -109,25 +109,44 @@ class Member(Base):
                                                         cascade="all, delete-orphan")
 
 
+class SiteUser(Base):
+    """An account on the site: login + password, registered by the person. Access to projects — `PanelAccount`."""
+
+    __tablename__ = "site_users"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    login: Mapped[str] = mapped_column(String(64), unique=True)
+    password_hash: Mapped[str] = mapped_column(String(256))
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now)
+
+
 class PanelAccount(Base):
-    """Login to the site: login + password + project code. Exists only for owner / admin / support."""
+    """Access of a site account to one project (owner / admin / support).
+
+    Created either on the site (project created or joined as admin with the project code) or by an integration that
+    assigned the status; then the person links it to their site account by a one-time link (`SetupToken`).
+    `login` is only a label until then: the login on the site is `SiteUser.login`.
+    """
 
     __tablename__ = "panel_accounts"
-    __table_args__ = (UniqueConstraint("project_id", "login"),)
+    __table_args__ = (UniqueConstraint("project_id", "login"), UniqueConstraint("user_id", "project_id"))
 
     id: Mapped[int] = mapped_column(primary_key=True)
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
     member_id: Mapped[int] = mapped_column(ForeignKey("members.id", ondelete="CASCADE"), unique=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("site_users.id", ondelete="SET NULL"))
     login: Mapped[str] = mapped_column(String(64))
+    # legacy: the per-project password from before site accounts (migrated into site_users), not used any more
     password_hash: Mapped[str | None] = mapped_column(String(256))
     password_set_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now)
 
     member: Mapped[Member] = relationship(back_populates="account", lazy="selectin")
+    user: Mapped[SiteUser | None] = relationship(lazy="selectin")
 
 
 class SetupToken(Base):
-    """One-time link to set (or reset) the password of a panel account."""
+    """One-time link that attaches a panel account (status given by an integration) to a site account."""
 
     __tablename__ = "setup_tokens"
 
@@ -139,10 +158,13 @@ class SetupToken(Base):
 
 
 class PanelSession(Base):
+    """A signed-in site account; `account_id` — the project chosen right now (None — the project picker)."""
+
     __tablename__ = "panel_sessions"
 
     token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
-    account_id: Mapped[int] = mapped_column(ForeignKey("panel_accounts.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("site_users.id", ondelete="CASCADE"), index=True)
+    account_id: Mapped[int | None] = mapped_column(ForeignKey("panel_accounts.id", ondelete="SET NULL"), index=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now)
     expires_at: Mapped[datetime] = mapped_column(UTCDateTime)
 

@@ -12,7 +12,7 @@ from ..db import sessionmaker
 from ..errors import ApiError, forbidden, unauthorized
 from ..models import Integration, Role
 from ..services import accounts, integrations
-from ..services.accounts import SESSION_COOKIE, PanelUser
+from ..services.accounts import SESSION_COOKIE, PanelUser, SiteSession
 
 
 def get_core(request: Request) -> Core:
@@ -39,14 +39,22 @@ def client_ip(request: Request) -> str:
     return fwd.split(",")[0].strip() if fwd else (request.client.host if request.client else "unknown")
 
 
-async def panel_user(request: Request, db: AsyncSession = Depends(get_db)) -> PanelUser:
-    """Cookie session. State-changing requests must carry `X-Requested-With: panel`: a cross-site form cannot set
-    custom headers, and a cross-site fetch with it needs a CORS preflight we never allow — CSRF is closed."""
-    user = await accounts.resolve(db, request.cookies.get(SESSION_COOKIE))
-    if user is None:
+async def site_session(request: Request, db: AsyncSession = Depends(get_db)) -> SiteSession:
+    """Cookie session of a site account. State-changing requests must carry `X-Requested-With: panel`: a cross-site
+    form cannot set custom headers, and a cross-site fetch with it needs a CORS preflight we never allow — CSRF is closed."""
+    s = await accounts.resolve(db, request.cookies.get(SESSION_COOKIE))
+    if s is None:
         raise unauthorized("Сессия истекла, войдите снова")
     if request.method not in ("GET", "HEAD", "OPTIONS") and request.headers.get("x-requested-with") != "panel":
         raise forbidden("csrf", "Запрос без заголовка X-Requested-With: panel")
+    return s
+
+
+async def panel_user(s: SiteSession = Depends(site_session)) -> PanelUser:
+    """A signed-in account inside its chosen project."""
+    user = accounts.panel_user(s)
+    if user is None:
+        raise ApiError(409, "project_not_selected", "Выберите проект")
     return user
 
 
