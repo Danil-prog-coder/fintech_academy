@@ -1,0 +1,53 @@
+# Автодеплой: каждый push в main → по SSH на сервер → git pull → пересборка изменившихся контейнеров.
+# Секреты репозитория (Settings → Secrets and variables → Actions):
+#   DEPLOY_HOST     — IP сервера
+#   DEPLOY_USER     — пользователь на сервере (deploy)
+#   DEPLOY_SSH_KEY  — приватный ключ (как есть или `base64 -w0 ~/.ssh/gh_actions`), его .pub — в authorized_keys сервера
+# На сервере репозиторий склонирован в ~/app, .env-файлы лежат там же (в git не попадают и не затираются).
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: SSH key
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          # ключ принимается как есть (-----BEGIN…) или одной строкой base64 — так его проще скопировать из терминала
+          if printf '%s' "$SSH_KEY" | grep -q 'BEGIN OPENSSH'; then
+            printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          else
+            printf '%s' "$SSH_KEY" | tr -d ' \r\n' | base64 -d > ~/.ssh/deploy_key
+          fi
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keygen -y -f ~/.ssh/deploy_key >/dev/null || { echo "DEPLOY_SSH_KEY повреждён"; exit 1; }
+          ssh-keyscan -t ed25519 -H "$HOST" >> ~/.ssh/known_hosts
+
+      - name: Deploy
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -o BatchMode=yes "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          cd ~/app
+          git fetch --quiet origin main
+          git checkout --quiet main 2>/dev/null || git checkout --quiet -b main origin/main
+          git reset --hard --quiet origin/main
+          docker compose up -d --build --remove-orphans
+          docker image prune -f >/dev/null
+          docker compose ps
+          REMOTE
