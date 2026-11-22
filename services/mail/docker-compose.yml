@@ -1,0 +1,53 @@
+# mail — демо-интеграция: почтовый клиент со своими пользователями и своей базой.
+# Самостоятельный: без платформы (admin) почта, ящики и письма работают; «Спросить у ИИ», «Ответить с ИИ»,
+# проекты и чат отвечают «Платформа временно недоступна».
+#
+#   отдельно:  docker compose -f services/mail/docker-compose.yml up -d --build
+#   вместе:    docker compose up -d --build
+#
+# Наружу — только mail-web (сайт + прокси API), порт MAIL_PORT (по умолчанию 3000).
+# К платформе ходит как внешний клиент через сеть platform_api (видит только admin, не llm и не чужие базы).
+
+name: platform
+
+services:
+  mail-web:
+    build: ./frontend
+    restart: unless-stopped
+    ports: ["${MAIL_PORT:-3000}:80"]
+    depends_on: [mail-api]
+    networks: [mail_internal, web]
+
+  mail-api:
+    build: ./backend
+    restart: unless-stopped
+    env_file: ./backend/.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://mail:${MAIL_DB_PASSWORD:-mail}@mail-db:5432/mail
+      PLATFORM_URL: http://admin:8000
+    depends_on:
+      mail-db: {condition: service_healthy}
+    networks: [mail_internal, api]
+
+  mail-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mail
+      POSTGRES_PASSWORD: ${MAIL_DB_PASSWORD:-mail}
+      POSTGRES_DB: mail
+    volumes: [mail_db:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mail -d mail"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [mail_internal]
+
+networks:
+  mail_internal: {}
+  api: {name: platform_api}
+  web: {name: platform_web}
+
+volumes:
+  mail_db: {}

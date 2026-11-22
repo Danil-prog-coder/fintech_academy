@@ -6,7 +6,28 @@
 - **сайт** для владельца, админов и поддержки (`frontend/`, React) и его API `/panel/api` (cookie-сессия);
 - **вебхук Jira** `/jira/webhook/{project}` и **подписанные ссылки на документы** `/v1/public/rag/documents/…`.
 
+## Запуск
+
+Сервис самостоятельный: свои Postgres и Redis ([docker-compose.yml](docker-compose.yml)), `llm` для старта не нужен —
+без него не работают только ответы ИИ и загрузка документации.
+
+```bash
+docker compose -f services/admin/docker-compose.yml up -d --build   # из корня репозитория
+```
+
 ## Код
+
+```
+backend/admin_api/
+  main.py, cli.py   приложение FastAPI и командная строка (ключи интеграций)
+  api/              HTTP: v1 (интеграции), panel (сайт), public (ссылки на документы, вебхук Jira), deps
+  services/         логика: accounts, projects, asking, questions, escalations, jira, events, docs, stats,
+                    integrations; rag — клиент к llm
+  db/               session (движок, сессии), models (таблицы)
+  core/             config, security, errors, ratelimit, runtime (общие зависимости приложения)
+backend/alembic/    миграции
+frontend/           сайт (React, FSD) и его nginx
+```
 
 | Путь | Что |
 |---|---|

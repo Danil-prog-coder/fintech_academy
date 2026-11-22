@@ -1,0 +1,75 @@
+# llm — скрытый RAG-сервис. Самостоятельный: свои Postgres, Qdrant и Redis, от других сервисов не зависит.
+#
+#   отдельно:  docker compose -f services/llm/docker-compose.yml up -d --build
+#   вместе:    docker compose up -d --build   (корневой docker-compose.yml подключает все три сервиса)
+#
+# Наружу порт не публикуется. В сеть platform_rag к нему приходит только admin.
+
+name: platform
+
+services:
+  llm:
+    build: .
+    restart: unless-stopped
+    env_file: ./.env
+    environment:
+      QDRANT_URL: http://qdrant:6333
+      REDIS_URL: redis://llm-redis:6379/0
+      DATABASE_URL: postgresql+pg8000://rag:${RAG_DB_PASSWORD:-rag}@llm-db:5432/rag
+      STATE_DIR: /app/var
+      KB_DIR: /app/var/uploads
+      VISION_CACHE_DIR: /app/data/vision_cache
+    volumes: [llm_var:/app/var]
+    depends_on:
+      qdrant: {condition: service_healthy}
+      llm-redis: {condition: service_healthy}
+      llm-db: {condition: service_healthy}
+    networks: [llm_internal, rag]
+
+  llm-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: rag
+      POSTGRES_PASSWORD: ${RAG_DB_PASSWORD:-rag}
+      POSTGRES_DB: rag
+    volumes: [llm_db:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rag -d rag"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [llm_internal]
+
+  qdrant:
+    image: qdrant/qdrant:v1.20.1
+    restart: unless-stopped
+    volumes: [qdrant:/qdrant/storage]
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/6333 && printf \"GET /readyz HTTP/1.0\\r\\n\\r\\n\" >&3 && grep -q 200 <&3'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [llm_internal]
+
+  llm-redis:
+    image: redis:7.2-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes: [redis:/data]  # том прежнего общего redis: сессии диалогов и кэш ответов сохраняются
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [llm_internal]
+
+networks:
+  llm_internal: {}   # llm ходит к провайдерам моделей, поэтому сеть не internal; портов наружу нет
+  rag: {name: platform_rag}
+
+volumes:
+  llm_db: {}
+  llm_var: {}
+  qdrant: {}
+  redis: {}

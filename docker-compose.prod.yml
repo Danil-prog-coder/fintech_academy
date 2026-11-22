@@ -24,7 +24,10 @@ services:
       - caddy_data:/data      # сертификаты: не удалять
       - caddy_config:/config
     depends_on: [admin-web, mail-web]
-    networks: [platform_public, mail_net]
+    networks: [web]
+
+networks:
+  web: {name: platform_web}  # та же сеть, в которой admin-web и mail-web
 
 volumes:
   caddy_data: {}

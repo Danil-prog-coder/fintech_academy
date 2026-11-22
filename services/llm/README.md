@@ -35,7 +35,7 @@ RAG-сервис (FastAPI). В платформе к нему подключае
 
 ```bash
 cp .env.example .env            # вписать OPENROUTER_API_KEY и GEMINI_API_KEY / EMBEDDING_API_KEY, SERVICE_API_TOKEN и ADMIN_API_TOKEN
-docker compose up -d --build    # из корня репозитория: сервис поднимается вместе с admin, Qdrant, Redis и Postgres
+docker compose -f services/llm/docker-compose.yml up -d --build   # из корня: только llm со своими Qdrant, Redis и Postgres
 
 curl -sN localhost:8080/ask -H "Authorization: Bearer $SERVICE_API_TOKEN" -H 'Content-Type: application/json' \
      -d '{"session_id":"u1","message":"Кто согласовывает БП Командировки?"}'
@@ -134,20 +134,21 @@ Ingestion: Parsers (DOCX / PDF / MD / TXT) → очистка шума → Table
 | AgentLoop, StreamingGuard, Guardrails | `rag_service/agent/loop.py`, `streaming.py`, `guardrails.py` |
 | PromptRegistry, SessionMemory | `rag_service/agent/prompts.py`, `prompts/agent_system.md`, `agent/memory.py` |
 | Tools | `rag_service/tools/` (`registry.py`, `filter_syntax.py`, `bo_link.py`) |
-| Справочные данные продукта | `config/product.yaml`, `rag_service/product.py` |
+| Справочные данные продукта | `config/product.yaml`, `rag_service/core/product.py` |
 | HybridRetriever, Reranker | `rag_service/retrieval/` |
 | Parsers, TableExtractor, ImageDescriber, вырезка фрагментов, Chunker | `rag_service/ingest/` |
 | Embedder, Publisher | `rag_service/index/` |
 | LLMClient (провайдеры, цепочка моделей, лимитер, поток, учёт токенов) | `rag_service/llm/` |
 | Маршрутизация моделей | `rag_service/agent/router.py` |
 | ExactCache / SemanticFaqCache | `rag_service/cache/`, `rag_service/faq/` (сущности, индекс Qdrant, сервис FAQ) |
-| Git-источник | `rag_service/git_source/` (GitHub/GitLab REST API, реестр источников, инкрементальная индексация) |
-| Фоновые задачи в БД, автоиндексация при старте | `rag_service/jobs.py` |
-| Аналитика | `rag_service/analytics/` (журнал, отчёты, классификация, пробелы в документации), `rag_service/db.py` |
-| KnowledgeWriter | `rag_service/knowledge.py` |
-| API | `rag_service/api/app.py`, `rag_service/service.py` |
+| Источники знаний: Git, Confluence | `rag_service/sources/git/` (GitHub/GitLab REST API, реестр источников, инкрементальная индексация), `rag_service/sources/confluence.py` |
+| Фоновые задачи в БД, автоиндексация при старте | `rag_service/core/jobs.py` |
+| Аналитика | `rag_service/analytics/` (журнал, отчёты, классификация, пробелы в документации), `rag_service/core/db.py` |
+| KnowledgeWriter, сводка изменений базы | `rag_service/ingest/knowledge.py`, `rag_service/ingest/notify.py` |
+| API | `rag_service/api/app.py` (ссылки на документы — `api/doclinks.py`, голосовые — `api/voice.py`), `rag_service/service.py` |
+| Фильтр входящих | `rag_service/agent/input_guard.py` |
 | Адаптер к бенчмарку | `rag_service/bench.py` |
-| График смены | `rag_service/hours.py` |
+| График смены | `rag_service/core/hours.py` |
 
 ### В коде нет знаний о конкретных вопросах
 
@@ -296,8 +297,13 @@ uv run python -m rag_eval evaluate --run runs/run1.jsonl --judge-model gpt-4.1
 ## Структура
 
 ```
-rag_service/        код сервиса (api, agent, tools, retrieval, index, ingest, cache, faq, git_source, analytics,
-                 jobs, knowledge, bench, hours, service)
+rag_service/     код сервиса
+  api/           HTTP: app.py, ссылки на документы, голосовые
+  core/          настройки, БД, фоновые задачи, справочник продукта, папки проектов, график смены
+  agent/         цикл агента, проверки ответа, фильтр входящих, маршрутизация моделей
+  tools/ retrieval/ index/ ingest/ cache/ faq/ analytics/ llm/   — по названию
+  sources/       внешние источники знаний: git/, confluence
+  service.py     сборка хода (кэши → агент → ответ), cli.py — командная строка
 config/          справочные данные продукта (product.yaml)
 prompts/         системный промпт агента (версионируется)
 data/kb/         база знаний (3 документа в Markdown + картинки); data/vision_cache — описания картинок VLM

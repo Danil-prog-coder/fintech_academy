@@ -1,0 +1,67 @@
+# admin — ядро платформы: открытый API /v1, сайт для владельцев, админов и поддержки.
+# Самостоятельный: свои Postgres и Redis. Без llm работает всё, кроме ответов ИИ и загрузки документации
+# (они отвечают «сервис недоступен»), /health остаётся здоровым.
+#
+#   отдельно:  docker compose -f services/admin/docker-compose.yml up -d --build
+#   вместе:    docker compose up -d --build
+#
+# Наружу — только admin-web (сайт + прокси API), порт ADMIN_PORT (по умолчанию 3001).
+# Сети: platform_rag — к llm, platform_api — к нему приходят интеграции (mail), platform_web — для Caddy в продакшене.
+
+name: platform
+
+services:
+  admin-web:
+    build: ./frontend
+    restart: unless-stopped
+    ports: ["${ADMIN_PORT:-3001}:80"]
+    depends_on: [admin]
+    networks: [admin_internal, web]
+
+  admin:
+    build: ./backend
+    restart: unless-stopped
+    env_file: ./backend/.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://admin:${ADMIN_DB_PASSWORD:-admin}@admin-db:5432/admin
+      REDIS_URL: redis://admin-redis:6379/0
+      RAG_URL: http://llm:8080
+    depends_on:
+      admin-db: {condition: service_healthy}
+      admin-redis: {condition: service_healthy}
+    networks: [admin_internal, rag, api]
+
+  admin-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: ${ADMIN_DB_PASSWORD:-admin}
+      POSTGRES_DB: admin
+    volumes: [admin_db:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d admin"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [admin_internal]
+
+  # лимиты API и попыток входа; хранить нечего — без тома
+  admin-redis:
+    image: redis:7.2-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [admin_internal]
+
+networks:
+  admin_internal: {}
+  rag: {name: platform_rag}
+  api: {name: platform_api}
+  web: {name: platform_web}
+
+volumes:
+  admin_db: {}
