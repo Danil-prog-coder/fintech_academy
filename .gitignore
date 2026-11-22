@@ -1,4 +1,4 @@
-.env
+back-end/.env
 **/.env
 !**/.env.example
 .venv/

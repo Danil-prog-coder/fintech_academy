@@ -85,9 +85,11 @@ def create_app(settings: Settings | None = None, core: Core | None = None) -> Fa
         except Exception:  # noqa: BLE001
             out["database"], out["status"] = "error", "degraded"
         try:
-            rag = await app.state.core.rag.health()
+            # bounded: an absent RAG (e.g. the stack started without llm) must not stall the container's healthcheck —
+            # resolving a missing host alone takes ~4 s in Docker's DNS, as long as the healthcheck waits
+            rag = await asyncio.wait_for(app.state.core.rag.health(), timeout=2.0)
             out["rag"] = rag.get("status", "ok")
-        except (RagError, RagUnavailable):
+        except (RagError, RagUnavailable, TimeoutError):
             out["rag"], out["status"] = "unavailable", "degraded"
         return out
 
