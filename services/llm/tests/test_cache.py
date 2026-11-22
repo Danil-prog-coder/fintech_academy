@@ -43,7 +43,7 @@ def test_self_contained_mid_session():
 def _fake_agent(calls):
     from rag_service.agent.memory import get_memory
 
-    def run(session_id, project_id, message, images=None, now=None, debug=False):
+    def run(session_id, project_id, message, images=None, now=None, debug=False, *, attachment_context=""):
         calls.append(message)
         mem = get_memory()
         sess = mem.load(session_id, project_id)
@@ -90,6 +90,9 @@ def test_repeat_in_same_session_hits_cache(monkeypatch):
     assert c.lookup("default", "g-repeat", pron) is None
     assert not service.ask_sync(sid, "default", pron)["cache_hit"]
     assert calls == [q, follow, follow, pron, pron]
+
+    attached = service.ask_sync(sid, "default", q, attachment_context='[{"name": "draft.txt", "text": "Черновик"}]')
+    assert not attached["cache_hit"] and calls[-1] == q
 
 
 def test_first_turn_short_question_still_cacheable(monkeypatch):

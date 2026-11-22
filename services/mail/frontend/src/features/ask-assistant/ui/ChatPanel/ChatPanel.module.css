@@ -22,11 +22,15 @@
 }
 
 .user {
-  align-self: flex-end;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: fit-content;
   max-width: 80%;
   padding: var(--space-3) var(--space-4);
+  margin-block-end: var(--space-2);
+  margin-inline-start: auto;
   overflow-wrap: anywhere;
-  white-space: pre-wrap;
   background-color: var(--color-accent-soft);
   border-radius: var(--radius-lg);
 }
@@ -53,20 +57,72 @@
   white-space: pre-wrap;
 }
 
-.commit {
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.controls,
+.voiceDraft {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.send {
+  margin-inline-start: auto;
+}
+
+.attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: 0;
   margin: 0;
-  font-size: var(--font-size-xs);
+  list-style: none;
+}
+
+.attachment {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  max-width: 100%;
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-sm);
+  background-color: var(--color-bg-subtle);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.attachment > span {
+  overflow-wrap: anywhere;
+}
+
+.attachment > svg,
+.attachment > button {
+  flex-shrink: 0;
+}
+
+.voice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+}
+
+.voiceDraft {
+  min-width: 0;
+}
+
+.recording {
+  margin: 0;
+  font-size: var(--font-size-sm);
   color: var(--color-text-muted);
 }
 
-.form {
-  display: flex;
-  gap: var(--space-2);
-  align-items: flex-end;
-}
-
 .input {
-  flex: 1;
+  width: 100%;
   padding: var(--space-3);
   resize: none;
   background-color: var(--color-surface);

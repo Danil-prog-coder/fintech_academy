@@ -41,23 +41,28 @@ def session_id(integ: Integration, project: Project, external_id: str) -> str:
     return f"{integ.slug}:{project.public_id}:{sha256(external_id)[:24]}"
 
 
-def _check_input(message: str, images: list[dict] | None) -> None:
+def _check_input(message: str, images: list[dict] | None, attachments: list[dict] | None = None) -> None:
     if len(message or "") > MESSAGE_MAX:
         raise bad_request("message_too_long", f"Сообщение длиннее {MESSAGE_MAX} символов")
-    if not (message or "").strip() and not images:
+    if not (message or "").strip() and not images and not attachments:
         raise bad_request("empty_message", "Пустой вопрос")
     for im in images or []:
         if im.get("mime") not in IMAGE_MIMES or len(im.get("data_base64") or "") > IMAGE_MAX_B64:
             raise bad_request("bad_image", "Картинка: png, jpeg, webp или gif до 5 МБ")
     if len(images or []) > MAX_IMAGES:
         raise bad_request("too_many_images", f"Не больше {MAX_IMAGES} картинок")
+    if attachments and len(images or []) + len(attachments) > 3:
+        raise bad_request("bad_attachment", "Не больше трёх файлов")
 
 
 def _payload(integ: Integration, project: Project, member: Member, message: str, images: list[dict] | None,
-             now: datetime | None) -> dict:
-    return {"session_id": session_id(integ, project, member.external_id), "project_id": project.rag_project_id,
-            "message": message or "", "images": images or None, "now": now.isoformat() if now else None,
-            "allowed_sections": visible_sections(member)}
+             now: datetime | None, attachments: list[dict] | None) -> dict:
+    payload = {"session_id": session_id(integ, project, member.external_id), "project_id": project.rag_project_id,
+               "message": message or "", "images": images or None, "now": now.isoformat() if now else None,
+               "allowed_sections": visible_sections(member)}
+    if attachments:
+        payload["attachments"] = attachments
+    return payload
 
 
 async def _finalize(core: Core, session: AsyncSession, project: Project, member: Member, message: str, raw: dict,
@@ -88,31 +93,37 @@ async def _finalize(core: Core, session: AsyncSession, project: Project, member:
 
 
 async def ask(core: Core, session: AsyncSession, integ: Integration, project: Project, member: Member, message: str,
-              images: list[dict] | None, channel: str | None, now: datetime | None = None) -> dict:
-    _check_input(message, images)
+              images: list[dict] | None, channel: str | None, now: datetime | None = None, *,
+              attachments: list[dict] | None = None) -> dict:
+    _check_input(message, images, attachments)
     try:
-        raw = await core.rag.ask_sync(_payload(integ, project, member, message, images, now))
+        raw = await core.rag.ask_sync(_payload(integ, project, member, message, images, now, attachments))
     except RagUnavailable as e:
         raise ApiError(503, "llm_unavailable", "Сервис ответов временно недоступен", retryable=True) from e
     except RagError as e:
+        if attachments and e.status == 422:
+            raise ApiError(422, "bad_attachment", e.detail) from e
         raise ApiError(502, "llm_error", "Сервис ответов отклонил запрос") from e
     return await _finalize(core, session, project, member, message, raw, channel)
 
 
 async def ask_stream(core: Core, session: AsyncSession, integ: Integration, project: Project, member: Member,
                      message: str, images: list[dict] | None, channel: str | None,
-                     now: datetime | None = None) -> AsyncIterator[dict]:
+                     now: datetime | None = None, *, attachments: list[dict] | None = None) -> AsyncIterator[dict]:
     """Events: status / delta / reset as the RAG sends them, then one `final` (the same object as the sync answer)."""
-    _check_input(message, images)
+    _check_input(message, images, attachments)
     final = None
     try:
-        async for ev in core.rag.ask_stream(_payload(integ, project, member, message, images, now)):
+        async for ev in core.rag.ask_stream(_payload(integ, project, member, message, images, now, attachments)):
             if ev.get("type") == "final":
                 final = ev
                 break
             if ev.get("type") in ("status", "delta", "reset"):
                 yield {k: v for k, v in ev.items() if k in ("type", "text")}
     except (RagUnavailable, RagError) as e:
+        if attachments and isinstance(e, RagError) and e.status == 422:
+            yield {"type": "error", "code": "bad_attachment", "message": e.detail, "retryable": False}
+            return
         log.warning("ask stream failed: %s", e)
         yield {"type": "error", "code": "llm_unavailable", "message": "Сервис ответов временно недоступен", "retryable": True}
         return

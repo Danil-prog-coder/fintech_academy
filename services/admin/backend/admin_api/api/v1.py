@@ -60,13 +60,25 @@ class ImageIn(BaseModel):
     data_base64: str
 
 
+class AttachmentIn(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    data_base64: str = Field(min_length=1, max_length=7_000_000)
+
+
 class AskIn(BaseModel):
     external_id: str
     message: str = Field(default="", max_length=4000)
     images: list[ImageIn] | None = None
+    attachments: list[AttachmentIn] | None = Field(default=None, max_length=3)
     channel: str | None = Field(default=None, max_length=32, description="канал интегратора: mail, telegram, web…")
     stream: bool = Field(default=False, description="true — ответ потоком SSE (status / delta / reset / final)")
     now: datetime | None = Field(default=None, description="подмена текущего времени (демонстрация нерабочих часов)")
+
+
+class TranscribeIn(BaseModel):
+    external_id: str
+    mime: str = Field(max_length=128)
+    data_base64: str = Field(min_length=1, max_length=27_962_028)  # 20 MiB in base64
 
 
 class FeedbackIn(BaseModel):
@@ -225,9 +237,10 @@ async def ask(project_id: str, body: AskIn, integ: Integration = Depends(integra
     p = await projects.get_project(db, integ, project_id)
     m = await projects.require_member(db, p, body.external_id)
     images = [i.model_dump() for i in body.images] if body.images else None
+    attachments = [item.model_dump() for item in body.attachments] if body.attachments else None
     if not body.stream:
-        return await asking.ask(core, db, integ, p, m, body.message, images, body.channel, body.now)
-    asking._check_input(body.message, images)  # fail with a normal JSON error before the stream starts
+        return await asking.ask(core, db, integ, p, m, body.message, images, body.channel, body.now, attachments=attachments)
+    asking._check_input(body.message, images, attachments)  # fail with a normal JSON error before the stream starts
 
     project_pk, member_pk, integ_pk = p.id, m.id, integ.id
 
@@ -235,10 +248,30 @@ async def ask(project_id: str, body: AskIn, integ: Integration = Depends(integra
         # a session of its own: the request-scoped one may be closed before the body is streamed
         async with sessionmaker()() as s2:
             p2, m2, i2 = await s2.get(Project, project_pk), await s2.get(Member, member_pk), await s2.get(Integration, integ_pk)
-            async for ev in asking.ask_stream(core, s2, i2, p2, m2, body.message, images, body.channel, body.now):
+            async for ev in asking.ask_stream(core, s2, i2, p2, m2, body.message, images, body.channel, body.now,
+                                               attachments=attachments):
                 yield f"event: {ev['type']}\ndata: {json.dumps(ev, ensure_ascii=False, default=str)}\n\n"
 
     return StreamingResponse(gen(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+@router.post("/projects/{project_id}/transcribe")
+async def transcribe(project_id: str, body: TranscribeIn, integ: Integration = Depends(integration),
+                     core: Core = Depends(get_core), db: AsyncSession = Depends(get_db)) -> dict:
+    p = await projects.get_project(db, integ, project_id)
+    await projects.require_member(db, p, body.external_id)
+    try:
+        result = await core.rag.transcribe(body.data_base64, body.mime)
+    except RagUnavailable as e:
+        raise ApiError(503, "llm_unavailable", "Распознавание речи временно недоступно", retryable=True) from e
+    except RagError as e:
+        raise bad_request("bad_audio", "Не удалось прочитать голосовое сообщение.") from e
+    text = result["text"].strip()
+    if not text:
+        raise bad_request("no_speech", "В записи не удалось распознать речь.")
+    if len(text) > asking.MESSAGE_MAX:
+        raise bad_request("message_too_long", "Расшифровка слишком длинная. Запишите более короткое сообщение.")
+    return {"text": text}
 
 
 @router.post("/projects/{project_id}/members/{external_id}/reset-dialog", status_code=204)

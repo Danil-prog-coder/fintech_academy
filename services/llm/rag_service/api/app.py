@@ -70,6 +70,7 @@ from ..sources import confluence_control
 from ..sources.git import sources as git
 from . import doclinks
 from . import questions as questions_api
+from .chat_attachments import AttachmentIn, AttachmentRejected, extract_attachment_context
 from .voice import AudioRejected, transcribe
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -149,6 +150,7 @@ class AskIn(BaseModel):
     project_id: str | None = None
     message: str = ""
     images: list[ImageIn] | None = None
+    attachments: list[AttachmentIn] | None = Field(default=None, max_length=3)
     now: datetime | None = Field(default=None, description="override current time (demo of out-of-hours behaviour)")
     debug: bool = Field(default=False, description="include the full tool log (arguments and returned fragments) in `final`")
     user_ref: str | None = Field(default=None, max_length=64, description="optional salted hash of the user made by the caller "
@@ -160,11 +162,22 @@ def _sse(ev: dict) -> str:
     return f"event: {ev['type']}\ndata: {json.dumps(ev, ensure_ascii=False, default=str)}\n\n"
 
 
+async def _attachment_context(body: AskIn) -> str:
+    if not body.attachments:
+        return ""
+    try:
+        return await asyncio.to_thread(extract_attachment_context, body.attachments)
+    except AttachmentRejected as e:
+        raise HTTPException(422, str(e)) from e
+
+
 @app.post("/ask", dependencies=[Depends(service)])
 async def ask(body: AskIn) -> StreamingResponse:
     imgs = [i.model_dump() for i in body.images] if body.images else None
+    attachment_context = await _attachment_context(body)
     get_questions().remember_user(body.session_id, body.user_ref)
-    gen = ask_events(body.session_id, body.project_id, body.message, imgs, body.now, body.debug, body.allowed_sections)
+    gen = ask_events(body.session_id, body.project_id, body.message, imgs, body.now, body.debug, body.allowed_sections,
+                     attachment_context=attachment_context)
     loop = asyncio.get_running_loop()
     sentinel = object()
     ctx = contextvars.copy_context()  # one Context for the whole turn: the section restriction lives there
@@ -183,9 +196,10 @@ async def ask(body: AskIn) -> StreamingResponse:
 @app.post("/ask/sync", dependencies=[Depends(service)])
 async def ask_json(body: AskIn) -> dict:
     imgs = [i.model_dump() for i in body.images] if body.images else None
+    attachment_context = await _attachment_context(body)
     get_questions().remember_user(body.session_id, body.user_ref)
     return await asyncio.to_thread(ask_sync, body.session_id, body.project_id, body.message, imgs, body.now, body.debug,
-                                   body.allowed_sections)
+                                   body.allowed_sections, attachment_context=attachment_context)
 
 
 class TranscribeIn(BaseModel):

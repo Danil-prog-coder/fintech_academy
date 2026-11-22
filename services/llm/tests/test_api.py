@@ -13,7 +13,7 @@ from rag_service.core import db, jobs
 from rag_service.core.config import get_settings
 
 
-def fake_events(session_id, project_id, message, images=None, now=None, debug=False, allowed_sections=None):
+def fake_events(session_id, project_id, message, images=None, now=None, debug=False, allowed_sections=None, *, attachment_context=""):
     yield {"type": "status", "text": "Ищу в документации…"}
     yield {"type": "delta", "text": "Ответ [1]"}
     yield {"type": "final", "action": "answer", "text": "Ответ [1]", "sources": [], "image_ids": [], "confidence": 0.9,
