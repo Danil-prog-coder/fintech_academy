@@ -1,0 +1,84 @@
+.root {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+}
+
+.backdrop {
+  position: absolute;
+  inset: 0;
+  background-color: rgb(15 15 15 / 45%);
+}
+
+/* Подсветка: прозрачное окно над элементом, всё вокруг затемнено огромной тенью. */
+.spotlight {
+  position: absolute;
+  pointer-events: none;
+  border: 2px solid var(--color-accent);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 0 0 9999px rgb(15 15 15 / 45%);
+  transition:
+    top var(--transition-fast),
+    left var(--transition-fast),
+    width var(--transition-fast),
+    height var(--transition-fast);
+}
+
+.card {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-5);
+  background-color: var(--color-surface);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+}
+
+.centered {
+  top: 50%;
+  left: 50%;
+  width: min(420px, calc(100vw - 32px));
+  transform: translate(-50%, -50%);
+}
+
+.close {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  display: inline-flex;
+  padding: var(--space-1);
+  color: var(--color-text-muted);
+  background: none;
+  border: 0;
+  border-radius: var(--radius-md);
+}
+
+.close:hover {
+  color: var(--color-text);
+  background-color: var(--color-bg-subtle);
+}
+
+.counter {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.title {
+  padding-right: var(--space-6);
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+}
+
+.text {
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+  margin-top: var(--space-2);
+}

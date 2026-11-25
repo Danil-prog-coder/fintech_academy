@@ -34,6 +34,24 @@ class Settings(BaseSettings):
     mail_max_send_bytes: int = 25 * 1024 * 1024
     mail_max_attachment_bytes: int = 25 * 1024 * 1024
 
+    # Test access: a button on the login page signs a guest (the jury) in as a shared demo user with a mailbox
+    # already connected and the demo project chosen (services/demo.py). Off by default.
+    demo_enabled: bool = False
+    demo_button_label: str = "Тестовый доступ для Fintech Academy"
+    demo_user_email: str = "jury@fintech-academy.demo"
+    demo_mailbox_email: str = ""
+    demo_mailbox_password: str = ""  # an app password of the demo mailbox
+    demo_mailbox_display_name: str = "Fintech Academy (демо)"
+    # Only for a mail domain without a preset (Gmail, Yandex, Mail.ru, … are known)
+    demo_mailbox_imap_host: str = ""
+    demo_mailbox_imap_port: int = 0
+    demo_mailbox_imap_security: str = ""
+    demo_mailbox_smtp_host: str = ""
+    demo_mailbox_smtp_port: int = 0
+    demo_mailbox_smtp_security: str = ""
+    # Code of the demo project: the guest joins it (as an admin of that project — use a separate project for the demo)
+    demo_project_code: str = ""
+
 
 @lru_cache
 def get_settings() -> Settings:

@@ -53,15 +53,6 @@ export const mailboxApi = baseApi.injectEndpoints({
     getMessage: build.query<MailMessage, MessageRef>({
       query: (ref) => ({ url: messageUrl(ref), params: { folder: ref.folder } }),
       providesTags: ['Message'],
-      // Чтение помечает письмо прочитанным на сервере: обновляем список и счётчики.
-      onQueryStarted: async (_ref, { dispatch, queryFulfilled }) => {
-        try {
-          await queryFulfilled;
-          dispatch(baseApi.util.invalidateTags(['Messages', 'Folders']));
-        } catch {
-          // Ошибку покажет сам экран письма.
-        }
-      },
     }),
     updateMessage: build.mutation<undefined, MessageRef & { patch: MessagePatch }>({
       query: (ref) => ({
@@ -70,8 +61,6 @@ export const mailboxApi = baseApi.injectEndpoints({
         params: { folder: ref.folder },
         body: ref.patch,
       }),
-      // 'Message' не сбрасываем: повторное чтение письма снова пометило бы его прочитанным.
-      invalidatesTags: ['Messages', 'Folders'],
     }),
     deleteMessage: build.mutation<undefined, MessageRef & { permanent?: boolean }>({
       query: (ref) => ({
@@ -98,6 +87,103 @@ export const mailboxApi = baseApi.injectEndpoints({
       invalidatesTags: ['Messages', 'Folders'],
     }),
   }),
+});
+
+/*
+ * Каждый запрос к почте — это новое IMAP-соединение с логином (Gmail отвечает за 0,5–1,5 с),
+ * а список папок ещё и спрашивает STATUS у каждой папки. Поэтому флаги «прочитано»/«важное»
+ * меняем в кэше сами, а список писем и папок перезапрашиваем, только когда письмо
+ * действительно переехало (перемещение, удаление, отправка).
+ */
+type CacheState = Parameters<typeof mailboxApi.util.selectCachedArgsForQuery>[0];
+type PatchAction = ReturnType<typeof mailboxApi.util.updateQueryData>;
+type Dispatch = (action: PatchAction) => { undo: () => void };
+
+const patchCachedFlags = (
+  state: CacheState,
+  dispatch: Dispatch,
+  ref: MessageRef,
+  patch: { seen?: boolean; flagged?: boolean },
+): (() => void) => {
+  const undo: (() => void)[] = [];
+  let wasSeen: boolean | undefined;
+  for (const args of mailboxApi.util.selectCachedArgsForQuery(state, 'listMessages')) {
+    if (args.accountId !== ref.accountId || args.folder !== ref.folder) {
+      continue;
+    }
+    undo.push(
+      dispatch(
+        mailboxApi.util.updateQueryData('listMessages', args, (draft) => {
+          const item = draft.items.find((m) => m.uid === ref.uid);
+          if (!item) {
+            return;
+          }
+          wasSeen ??= item.seen;
+          if (patch.seen !== undefined) {
+            item.seen = patch.seen;
+          }
+          if (patch.flagged !== undefined) {
+            item.flagged = patch.flagged;
+          }
+        }),
+      ).undo,
+    );
+  }
+  if (patch.seen !== undefined && wasSeen !== undefined && wasSeen !== patch.seen) {
+    const delta = patch.seen ? -1 : 1;
+    undo.push(
+      dispatch(
+        mailboxApi.util.updateQueryData('listFolders', ref.accountId, (draft) => {
+          const folder = draft.find((f) => f.path === ref.folder);
+          if (folder) {
+            folder.unseen = Math.max(0, folder.unseen + delta);
+          }
+        }),
+      ).undo,
+    );
+  }
+  return () => {
+    undo.forEach((fn) => {
+      fn();
+    });
+  };
+};
+
+mailboxApi.enhanceEndpoints({
+  endpoints: {
+    getMessage: {
+      // Чтение помечает письмо прочитанным на сервере: отражаем это в списке и счётчике
+      // папки локально, без повторного запроса списка и папок.
+      onQueryStarted: async (ref, lifecycle) => {
+        const { dispatch, queryFulfilled } = lifecycle;
+        try {
+          await queryFulfilled;
+          patchCachedFlags(lifecycle.getState(), dispatch, ref, { seen: true });
+        } catch {
+          // Ошибку покажет сам экран письма.
+        }
+      },
+    },
+    updateMessage: {
+      // Флаги меняем в кэше сразу (и откатываем при ошибке); список и папки перезапрашиваем,
+      // только если письмо переехало. 'Message' не сбрасываем: повторное чтение письма снова
+      // пометило бы его прочитанным.
+      onQueryStarted: async (arg, lifecycle) => {
+        const { dispatch, queryFulfilled } = lifecycle;
+        if (arg.patch.move_to) {
+          return;
+        }
+        const undo = patchCachedFlags(lifecycle.getState(), dispatch, arg, arg.patch);
+        try {
+          await queryFulfilled;
+        } catch {
+          undo();
+        }
+      },
+      invalidatesTags: (_result, error, arg) =>
+        arg.patch.move_to || error ? ['Messages', 'Folders'] : [],
+    },
+  },
 });
 
 export const {

@@ -1,4 +1,4 @@
-import { FolderKanban, House, LogOut, MessageSquare, Plug, Search, Unplug } from 'lucide-react';
+import { ChevronDown, Mail, Plug, Search, Unplug } from 'lucide-react';
 import { type SubmitEventHandler, useState } from 'react';
 import { useNavigate } from 'react-router';
 
@@ -9,11 +9,10 @@ import {
   useActiveAccount,
   useDisconnectAccountMutation,
 } from '@/entities/mailbox';
-import { useGetMeQuery, useLogout } from '@/entities/session';
 import { routePaths } from '@/shared/config';
 import { useAppDispatch, useAppSelector } from '@/shared/lib/store';
 import { showToast } from '@/shared/lib/toast';
-import { Avatar, DropdownMenu, TextField } from '@/shared/ui';
+import { DropdownMenu, TextField } from '@/shared/ui';
 
 import styles from './MailboxHeader.module.css';
 
@@ -50,13 +49,15 @@ const SearchBox = ({ query }: SearchBoxProps) => {
   );
 };
 
+/**
+ * Панель над списком писем: поиск и действия с ящиком. Навигация по разделам и меню
+ * пользователя — в общей шапке сайта (AppHeader) над ней.
+ */
 export const MailboxHeader = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const logout = useLogout();
   const query = useAppSelector(selectQuery);
   const { account } = useActiveAccount();
-  const { data: me } = useGetMeQuery(undefined);
   const [disconnect] = useDisconnectAccountMutation();
   const handleDisconnect = async () => {
     if (!account || !window.confirm(`Отключить ящик ${account.email}?`)) {
@@ -71,7 +72,7 @@ export const MailboxHeader = () => {
     }
   };
 
-  const email = me?.email ?? '';
+  const mailbox = account?.email ?? '';
 
   return (
     <header className={styles.header}>
@@ -79,11 +80,14 @@ export const MailboxHeader = () => {
       {/* Запрос меняется извне при смене папки или ящика — ключ пересоздаёт поле. */}
       <SearchBox key={query} query={query} />
       <DropdownMenu
-        label="Меню пользователя"
+        label="Действия с ящиком"
         trigger={
-          <span className={styles.user}>
-            <Avatar initials={(email.slice(0, 2) || '?').toUpperCase()} size="md" />
-            <span className={styles.email}>{email}</span>
+          <span className={styles.mailbox}>
+            <Mail size={18} />
+            <span className={styles.email} title={mailbox}>
+              Ящик
+            </span>
+            <ChevronDown size={16} />
           </span>
         }
         items={[
@@ -103,36 +107,6 @@ export const MailboxHeader = () => {
             onSelect: () => {
               void handleDisconnect();
             },
-          },
-          {
-            id: 'home',
-            label: 'Главная',
-            icon: <House size={18} />,
-            onSelect: () => {
-              void navigate(routePaths.root);
-            },
-          },
-          {
-            id: 'projects',
-            label: 'Проекты',
-            icon: <FolderKanban size={18} />,
-            onSelect: () => {
-              void navigate(routePaths.projects);
-            },
-          },
-          {
-            id: 'chat',
-            label: 'Чат с ассистентом',
-            icon: <MessageSquare size={18} />,
-            onSelect: () => {
-              void navigate(routePaths.chat);
-            },
-          },
-          {
-            id: 'logout',
-            label: 'Выйти',
-            icon: <LogOut size={18} />,
-            onSelect: logout,
           },
         ]}
       />

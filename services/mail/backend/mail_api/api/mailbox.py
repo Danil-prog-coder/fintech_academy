@@ -7,6 +7,7 @@
 import asyncio
 import base64
 import binascii
+import dataclasses
 import logging
 from collections.abc import Callable
 from urllib.parse import quote as url_quote
@@ -39,7 +40,12 @@ from mail_api.schemas.mailbox import (
     SendResult,
 )
 from mail_api.services.mailbox import imap, parse, smtp
-from mail_api.services.mailbox.errors import folder_not_found, message_not_found, server_unavailable
+from mail_api.services.mailbox.errors import (
+    Unreachable,
+    folder_not_found,
+    message_not_found,
+    server_unavailable,
+)
 from mail_api.services.mailbox.hosts import resolve_public_host, saves_sent_copy, server_settings
 
 log = logging.getLogger(__name__)
@@ -47,7 +53,17 @@ router = APIRouter(tags=["mailbox"], responses=ERROR_RESPONSES)
 
 MAX_ACCOUNTS = 10
 MAX_PAGE = 100
-ROLE_ORDER = {"inbox": 0, "drafts": 1, "sent": 2, "archive": 3, "junk": 4, "trash": 5}
+ROLE_ORDER = {
+    "inbox": 0,
+    "drafts": 1,
+    "sent": 2,
+    "archive": 3,
+    "junk": 4,
+    "trash": 5,
+    "important": 6,
+    "flagged": 7,
+    "all": 8,
+}
 
 
 # --- вспомогательное ---------------------------------------------------------------------
@@ -95,6 +111,57 @@ async def _smtp_conn(account: MailAccount) -> smtp.SmtpConn:
         ip=ip,
         timeout=get_settings().mail_timeout_sec,
     )
+
+
+# Порты отправки взаимозаменяемы: многие хостинги закрывают 465, но оставляют 587, или наоборот.
+_SMTP_ALTERNATES = {(465, "ssl"): (587, "starttls"), (587, "starttls"): (465, "ssl")}
+
+
+async def _smtp_send(
+    session: AsyncSession, account: MailAccount, msg, recipients: list[str]
+) -> None:
+    """Отправляет письмо; если сервер не открывает соединение, пробует второй стандартный порт.
+
+    Повтор идёт только при ошибке соединения (Unreachable) — тогда письмо точно не ушло и
+    дубля не будет. Сработавший порт запоминается в настройках ящика.
+    """
+    conn = await _smtp_conn(account)
+
+    async def attempt(c: smtp.SmtpConn) -> None:
+        try:
+            await asyncio.to_thread(smtp.send, c, msg, account.email, recipients)
+        except Unreachable:
+            raise
+        except AppError as exc:
+            if _is_unavailable(exc):  # соединение было, оборвалось при передаче
+                raise server_unavailable("SMTP", c.host, c.port) from None
+            raise
+
+    try:
+        await attempt(conn)
+        return
+    except Unreachable:
+        alt = _SMTP_ALTERNATES.get((conn.port, conn.security))
+        if alt is None:
+            raise server_unavailable("SMTP", conn.host, conn.port) from None
+    alt_conn = dataclasses.replace(conn, port=alt[0], security=alt[1])
+    try:
+        await attempt(alt_conn)
+    except Unreachable:
+        raise AppError(
+            "mail_unavailable",
+            f"Не удалось подключиться к SMTP-серверу {conn.host} ни через порт {conn.port}, "
+            f"ни через {alt_conn.port}. Похоже, сервер платформы не выпускает исходящую почту: "
+            "хостинг закрыл SMTP-порты. Попробуйте позже или напишите в поддержку.",
+            502,
+            retryable=True,
+        ) from None
+    log.info("smtp %s: port %s unreachable, switched to %s", conn.host, conn.port, alt_conn.port)
+    account.smtp_port, account.smtp_security = alt_conn.port, alt_conn.security
+    try:
+        await session.commit()
+    except Exception:  # noqa: BLE001 — письмо уже ушло, запомнить порт не обязательно
+        await session.rollback()
 
 
 async def run_imap[T](account: MailAccount, work: Callable[[imap.ImapSession], T]) -> T:
@@ -517,13 +584,7 @@ async def send_message(
     raw = msg.as_bytes()
     if len(raw) > get_settings().mail_max_send_bytes:
         raise AppError("message_too_large", "Письмо слишком большое.", 413)
-    smtp_conn = await _smtp_conn(account)
-    try:
-        await asyncio.to_thread(smtp.send, smtp_conn, msg, account.email, list(recipients))
-    except AppError as exc:
-        if _is_unavailable(exc):
-            raise server_unavailable("SMTP", account.smtp_host, account.smtp_port) from None
-        raise
+    await _smtp_send(session, account, msg, list(recipients))
 
     # Письмо уже ушло: дальнейшие сбои не должны превращать ответ в ошибку.
     auto_saved = saves_sent_copy(account.smtp_host)

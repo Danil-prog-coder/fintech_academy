@@ -61,3 +61,8 @@
   background-color: var(--color-danger);
   border-radius: 9px;
 }
+
+.slot {
+  display: inline-flex;
+  align-items: center;
+}

@@ -82,6 +82,10 @@ _ROLE_FLAGS = {
     "\\drafts": "drafts",
     "\\junk": "junk",
     "\\archive": "archive",
+    # Служебные папки Gmail: «Вся почта», «Помеченные», «Важное».
+    "\\all": "all",
+    "\\flagged": "flagged",
+    "\\important": "important",
 }
 _ROLE_NAMES = {
     "sent": {"sent", "sent items", "sent messages", "отправленные", "исходящие"},
@@ -103,6 +107,30 @@ def folder_role(path: str, flags: set[str]) -> str | None:
         if leaf in names:
             return role
     return None
+
+
+def _has_role_flag(folder: "RawFolder") -> bool:
+    return folder.role == "inbox" or any(
+        role == folder.role and flag in folder.flags for flag, role in _ROLE_FLAGS.items()
+    )
+
+
+def _dedupe_roles(folders: list["RawFolder"]) -> list["RawFolder"]:
+    """У каждой роли — одна папка. Если роль досталась нескольким (папка с флагом \\Drafts
+    и пользовательская «Drafts», найденная по имени), роль остаётся у той, что с флагом;
+    остальные показываются как обычные папки под своим именем."""
+    by_role: dict[str, list[RawFolder]] = {}
+    for folder in folders:
+        if folder.role:
+            by_role.setdefault(folder.role, []).append(folder)
+    for group in by_role.values():
+        if len(group) < 2:
+            continue
+        keep = next((f for f in group if _has_role_flag(f)), group[0])
+        for folder in group:
+            if folder is not keep:
+                folder.role = None
+    return folders
 
 
 @dataclass
@@ -243,7 +271,7 @@ class ImapSession:
                 )
                 folder.role = folder_role(path, flags)
                 result.append(folder)
-            self._folders = result
+            self._folders = _dedupe_roles(result)
         return self._folders
 
     def folder_status(self, folder: RawFolder) -> None:

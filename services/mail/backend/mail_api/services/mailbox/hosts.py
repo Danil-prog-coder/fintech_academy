@@ -106,4 +106,6 @@ async def resolve_public_host(host: str, port: int, security: str) -> str:
         for addr in addresses:
             if not ipaddress.ip_address(addr.split("%", 1)[0]).is_global:
                 raise _forbidden("Адрес почтового сервера недопустим.")
-    return addresses[0]
+    # IPv4 первым: в Docker-сети у контейнера обычно нет маршрута IPv6, и соединение
+    # с AAAA-адресом падало бы как «сервер недоступен».
+    return next((a for a in addresses if ":" not in a), addresses[0])

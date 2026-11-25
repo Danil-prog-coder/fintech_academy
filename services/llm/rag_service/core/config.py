@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+log = logging.getLogger(__name__)
 
 ROOT = Path(__file__).resolve().parents[2]  # services/llm: prompts/, config/, data/
 
@@ -290,6 +294,21 @@ class Settings(BaseSettings):
 
     # --- knowledge from operators' answers (FR-ESC-06) and screenshot fragments (FR-ING-06) ---
     support_answers_dir: str = "support-answers"  # default section for answers saved from support (FR-ESC-06)
+
+    @field_validator("llm_api_key", "openrouter_api_key", "gemini_api_key", "embedding_api_key", mode="before")
+    @classmethod
+    def _real_key_only(cls, value: object, info) -> object:
+        """A key left as the .env.example placeholder («<ключ OpenRouter>») is not a key: it went into the
+        Authorization header and every call failed with «'ascii' codec can't encode characters in position 8-11».
+        Such a value (angle brackets or non-ASCII) is dropped as unset and reported once, by name."""
+        if not isinstance(value, str):
+            return value
+        key = value.strip()
+        if key and (key.startswith("<") or not key.isascii()):
+            log.error("%s looks like a placeholder, not an API key; ignored — put the real key into services/llm/.env",
+                      info.field_name.upper())
+            return ""
+        return key
 
 
 @lru_cache

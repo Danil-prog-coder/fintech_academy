@@ -9,7 +9,7 @@ from email import policy
 from email.message import EmailMessage
 from email.utils import formataddr, formatdate, make_msgid
 
-from mail_api.services.mailbox.errors import auth_failed, rejected, unavailable
+from mail_api.services.mailbox.errors import auth_failed, rejected, unavailable, unreachable
 
 _NETWORK_ERRORS = (OSError, ssl.SSLError, smtplib.SMTPServerDisconnected)
 
@@ -25,13 +25,24 @@ class SmtpConn:
     timeout: int
 
 
+# Закрытый хостингом порт обычно молча теряет пакеты: соединение висит до таймаута.
+# Ждём его недолго, чтобы успеть попробовать второй порт; обмен после соединения — с полным.
+CONNECT_TIMEOUT = 8
+
+
+def _connect(ip: str, port: int, timeout: float, source_address) -> socket.socket:
+    sock = socket.create_connection((ip, port), min(timeout, CONNECT_TIMEOUT), source_address)
+    sock.settimeout(timeout)
+    return sock
+
+
 class _Smtp(smtplib.SMTP):
     def __init__(self, host: str, port: int, ip: str, timeout: int):
         self._ip = ip
         super().__init__(host, port, timeout=timeout)
 
     def _get_socket(self, host, port, timeout):
-        return socket.create_connection((self._ip, port), timeout, self.source_address)
+        return _connect(self._ip, port, timeout, self.source_address)
 
 
 class _SmtpSSL(smtplib.SMTP_SSL):
@@ -40,7 +51,7 @@ class _SmtpSSL(smtplib.SMTP_SSL):
         super().__init__(host, port, timeout=timeout, context=ctx)
 
     def _get_socket(self, host, port, timeout):
-        sock = socket.create_connection((self._ip, port), timeout, self.source_address)
+        sock = _connect(self._ip, port, timeout, self.source_address)
         return self.context.wrap_socket(sock, server_hostname=self._host)
 
 
@@ -56,7 +67,7 @@ def _open(c: SmtpConn) -> smtplib.SMTP:
                 smtp.starttls(context=ctx)
                 smtp.ehlo()
     except _NETWORK_ERRORS + (smtplib.SMTPException,):
-        raise unavailable() from None
+        raise unreachable() from None
     try:
         smtp.login(c.username, c.password)
     except smtplib.SMTPAuthenticationError:

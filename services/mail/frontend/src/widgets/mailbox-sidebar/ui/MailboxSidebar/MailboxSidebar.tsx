@@ -1,13 +1,15 @@
 import {
   Archive,
+  Bookmark,
   File,
   FileText,
   Folder,
   Inbox,
-  Mail,
+  Layers,
   OctagonAlert,
   Pencil,
   Send,
+  Star,
   Trash,
   type LucideIcon,
 } from 'lucide-react';
@@ -35,6 +37,31 @@ const roleIcons: Record<string, LucideIcon> = {
   trash: Trash,
   junk: OctagonAlert,
   archive: Archive,
+  all: Layers,
+  flagged: Star,
+  important: Bookmark,
+};
+
+/**
+ * Счётчик рядом с папкой. Непрочитанные имеют смысл только там, куда письма приходят:
+ * во «Входящих», «Спаме» и своих папках. В «Черновиках» показываем, сколько их всего.
+ * В «Отправленных», «Корзине», «Архиве» и служебных папках Gmail («Вся почта»,
+ * «Помеченные», «Важное») число непрочитанных вводит в заблуждение — его не показываем.
+ */
+const folderCounter = (folder: MailFolder): { value: number; label: string } | null => {
+  switch (folder.role) {
+    case 'drafts':
+      return folder.total > 0 ? { value: folder.total, label: 'Черновиков' } : null;
+    case 'sent':
+    case 'trash':
+    case 'archive':
+    case 'all':
+    case 'flagged':
+    case 'important':
+      return null;
+    default:
+      return folder.unseen > 0 ? { value: folder.unseen, label: 'Непрочитанных' } : null;
+  }
 };
 
 const FolderIcon = ({ folder }: { folder: MailFolder }) => {
@@ -58,10 +85,6 @@ export const MailboxSidebar = () => {
 
   return (
     <aside className={styles.sidebar}>
-      <div className={styles.brand}>
-        <Mail size={30} strokeWidth={1.8} />
-        <span className={styles.brandName}>Почта</span>
-      </div>
       {accounts.length > 1 && account ? (
         <Select
           label="Почтовый ящик"
@@ -97,6 +120,7 @@ export const MailboxSidebar = () => {
         {isError ? <p className={styles.error}>Не удалось загрузить папки.</p> : null}
         {folders?.map((folder) => {
           const active = folder.path === currentFolder;
+          const counter = folderCounter(folder);
           return (
             <button
               key={folder.path}
@@ -109,12 +133,13 @@ export const MailboxSidebar = () => {
             >
               <FolderIcon folder={folder} />
               <span className={styles.label}>{folderLabel(folder)}</span>
-              {folder.unseen > 0 && folder.role !== 'trash' ? (
+              {counter ? (
                 <span
                   className={styles.count}
-                  aria-label={`Непрочитанных: ${String(folder.unseen)}`}
+                  title={`${counter.label}: ${String(counter.value)}`}
+                  aria-label={`${counter.label}: ${String(counter.value)}`}
                 >
-                  {folder.unseen}
+                  {counter.value}
                 </span>
               ) : null}
             </button>
