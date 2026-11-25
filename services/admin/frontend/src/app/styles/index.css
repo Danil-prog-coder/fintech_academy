@@ -128,9 +128,15 @@ button:disabled {
   cursor: not-allowed;
 }
 
+/* Без синей системной обводки: поля ввода подсвечивают рамку сами (зелёный ореол),
+   кнопкам и ссылкам при навигации с клавиатуры — мягкое кольцо в цвет акцента. */
+:focus,
 :focus-visible {
-  outline: 2px solid var(--color-info);
-  outline-offset: 2px;
+  outline: none;
+}
+
+:where(button, a, [role='button'], [tabindex]):focus-visible {
+  box-shadow: 0 0 0 3px var(--color-accent-border);
 }
 
 h1,

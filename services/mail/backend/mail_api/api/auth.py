@@ -1,12 +1,13 @@
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from mail_api.api.deps import current_user
+from mail_api.core.config import get_settings
 from mail_api.core.errors import AppError
 from mail_api.core.ratelimit import per_ip
 from mail_api.core.security import (
@@ -18,6 +19,7 @@ from mail_api.core.security import (
 )
 from mail_api.db.models import ApiToken, User
 from mail_api.db.session import get_session
+from mail_api.services import demo
 
 router = APIRouter(tags=["auth"])
 
@@ -49,6 +51,12 @@ class ApiTokenCreated(BaseModel):
 class MeResponse(BaseModel):
     id: int
     email: str
+    demo: bool = False
+
+
+class DemoInfo(BaseModel):
+    enabled: bool
+    label: str
 
 
 def _pair(user_id: int) -> TokenPair:
@@ -63,6 +71,8 @@ async def register(
     session: AsyncSession = Depends(get_session),
     _: None = per_ip("register", 10),
 ):
+    if demo.is_demo_email(get_settings(), body.email):
+        raise AppError("email_taken", "Пользователь с таким email уже существует.", 409)
     user = User(email=body.email.lower(), password_hash=await hash_password(body.password))
     session.add(user)
     try:
@@ -83,6 +93,24 @@ async def login(
     # Одинаковая ошибка для неверного email и пароля.
     if user is None or not await verify_password(body.password, user.password_hash):
         raise AppError("invalid_credentials", "Неверный email или пароль.", 401)
+    return _pair(user.id)
+
+
+@router.get("/auth/demo", response_model=DemoInfo)
+async def demo_info():
+    """Показывать ли на странице входа кнопку тестового доступа."""
+    s = get_settings()
+    return DemoInfo(enabled=s.demo_enabled, label=s.demo_button_label)
+
+
+@router.post("/auth/demo", response_model=TokenPair)
+async def demo_login(
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    _: None = per_ip("demo", 20),
+):
+    """Тестовый доступ: вход под общим демо-пользователем с подключённым ящиком и проектом."""
+    user = await demo.demo_user(session, get_settings(), request.app.state.platform)
     return _pair(user.id)
 
 
@@ -126,4 +154,4 @@ async def revoke_api_token(
 
 @router.get("/me", response_model=MeResponse)
 async def me(user: User = Depends(current_user)):
-    return MeResponse(id=user.id, email=user.email)
+    return MeResponse(id=user.id, email=user.email, demo=demo.is_demo_email(get_settings(), user.email))

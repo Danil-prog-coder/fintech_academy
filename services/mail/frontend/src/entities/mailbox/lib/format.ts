@@ -60,6 +60,9 @@ const FOLDER_LABELS: Record<string, string> = {
   trash: 'Корзина',
   junk: 'Спам',
   archive: 'Архив',
+  all: 'Вся почта',
+  flagged: 'Помеченные',
+  important: 'Важное',
 };
 
 export const folderLabel = (folder: { name: string; role: string | null }): string =>

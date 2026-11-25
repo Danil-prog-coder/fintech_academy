@@ -33,7 +33,10 @@ class AccountOut(BaseModel):
 class FolderOut(BaseModel):
     path: str = Field(description="Полное имя; его передают в параметр folder.")
     name: str
-    role: Literal["inbox", "sent", "drafts", "trash", "junk", "archive"] | None
+    role: (
+        Literal["inbox", "sent", "drafts", "trash", "junk", "archive", "all", "flagged", "important"]
+        | None
+    )
     total: int
     unseen: int
 

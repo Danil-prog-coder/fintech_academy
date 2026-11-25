@@ -28,8 +28,7 @@
 }
 
 .input:focus-visible + .box {
-  outline: 2px solid var(--color-info);
-  outline-offset: 2px;
+  box-shadow: 0 0 0 3px var(--color-accent-border);
 }
 
 .checked {

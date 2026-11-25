@@ -5,6 +5,7 @@ import { ComposeModal } from '@/features/compose-message';
 import { getErrorMessage } from '@/shared/api';
 import { routePaths } from '@/shared/config';
 import { Button, Notice, Spinner } from '@/shared/ui';
+import { AppHeader } from '@/widgets/app-header';
 import { MailboxHeader } from '@/widgets/mailbox-header';
 import { MailboxSidebar } from '@/widgets/mailbox-sidebar';
 import { MessageList } from '@/widgets/message-list';
@@ -42,18 +43,21 @@ export const MailboxPage = () => {
 
   return (
     <div className={styles.page}>
-      <div className={styles.sidebar}>
-        <MailboxSidebar />
+      <AppHeader />
+      <div className={styles.workspace}>
+        <div className={styles.sidebar}>
+          <MailboxSidebar />
+        </div>
+        <div className={styles.header}>
+          <MailboxHeader />
+        </div>
+        <div className={styles.list}>
+          <MessageList />
+        </div>
+        <main className={styles.reader}>
+          <MessageReader />
+        </main>
       </div>
-      <div className={styles.header}>
-        <MailboxHeader />
-      </div>
-      <div className={styles.list}>
-        <MessageList />
-      </div>
-      <main className={styles.reader}>
-        <MessageReader />
-      </main>
       <ComposeModal accountId={account?.id ?? null} />
     </div>
   );

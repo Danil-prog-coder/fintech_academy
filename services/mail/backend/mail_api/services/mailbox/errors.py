@@ -7,6 +7,16 @@ def unavailable() -> AppError:
     )
 
 
+class Unreachable(AppError):
+    """Соединение с сервером не открылось: письмо точно не ушло, можно пробовать другой порт."""
+
+
+def unreachable() -> AppError:
+    return Unreachable(
+        "mail_unavailable", "Почтовый сервер недоступен, попробуйте позже.", 502, retryable=True
+    )
+
+
 def server_unavailable(kind: str, host: str, port: int) -> AppError:
     """Как unavailable(), но называет сервер: видно, какой из двух не отвечает."""
     return AppError(

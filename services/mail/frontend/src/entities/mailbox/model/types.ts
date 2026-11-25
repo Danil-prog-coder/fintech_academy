@@ -1,6 +1,7 @@
 export type Security = 'ssl' | 'starttls' | 'none';
 
-export type FolderRole = 'inbox' | 'sent' | 'drafts' | 'trash' | 'junk' | 'archive';
+export type FolderRole =
+  'inbox' | 'sent' | 'drafts' | 'trash' | 'junk' | 'archive' | 'all' | 'flagged' | 'important';
 
 export interface AccountCreate {
   email: string;

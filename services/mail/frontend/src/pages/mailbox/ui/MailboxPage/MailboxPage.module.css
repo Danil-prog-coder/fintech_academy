@@ -1,12 +1,21 @@
 .page {
-  display: grid;
-  grid-template:
-    'sidebar header header' var(--header-height)
-    'sidebar list reader' minmax(0, 1fr)
-    / var(--sidebar-width) var(--letter-list-width) minmax(0, 1fr);
+  --toolbar-height: 64px;
+
+  display: flex;
+  flex-direction: column;
   height: 100vh;
   overflow: hidden;
   background-color: var(--color-surface);
+}
+
+.workspace {
+  display: grid;
+  flex: 1;
+  grid-template:
+    'sidebar header header' var(--toolbar-height)
+    'sidebar list reader' minmax(0, 1fr)
+    / var(--sidebar-width) var(--letter-list-width) minmax(0, 1fr);
+  min-height: 0;
 }
 
 .sidebar {
@@ -32,7 +41,7 @@
 }
 
 @media (width <= 1280px) {
-  .page {
+  .workspace {
     --letter-list-width: 320px;
     --sidebar-width: 220px;
   }
